@@ -1,0 +1,78 @@
+# LLMShare local test build.
+# Builds the image from the local Dockerfile (instead of pulling calciumion/new-api)
+# so the dynamic-quota changes are included. Uses MySQL since that's the design target.
+#
+#   docker compose -f docker-compose.test.yml up -d --build
+#
+# Rebuilding does NOT touch the database: `up --build` only recreates the
+# llmshare container; the MySQL volume persists. To wipe the DB on purpose use:
+#   docker compose -f docker-compose.test.yml down -v
+#
+version: '3.4'
+
+services:
+  llmshare:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llmshare:test
+    container_name: llmshare-test
+    restart: "no"
+    command: --log-dir /app/logs
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+    environment:
+      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api
+      - REDIS_CONN_STRING=redis://:123456@redis:6379
+      - TZ=Asia/Shanghai
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      - NODE_NAME=llmshare-node-1
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - llmshare-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:latest
+    container_name: llmshare-redis
+    restart: always
+    command: ["redis-server", "--requirepass", "123456"]
+    networks:
+      - llmshare-network
+
+  mysql:
+    image: mysql:8.2
+    container_name: llmshare-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: new-api
+    volumes:
+      - llmshare_mysql_data:/var/lib/mysql
+    networks:
+      - llmshare-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  llmshare_mysql_data:
+
+networks:
+  llmshare-network:
+    driver: bridge

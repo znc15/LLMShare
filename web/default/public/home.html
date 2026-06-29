@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LittleSheep AI · 公益 AI API 服务站</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&family=Pacifico&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    :root {
+      --rose:        #ff8fab;
+      --rose-light:  #ffc8d9;
+      --rose-pale:   #fff0f5;
+      --sky:         #74b9ff;
+      --sky-light:   #b8dcff;
+      --sky-pale:    #f0f7ff;
+      --lavender:    #a29bfe;
+      --lav-light:   #d9d6fe;
+      --lav-pale:    #f5f3ff;
+      --mint:        #55efc4;
+      --amber:       #fdcb6e;
+      --bg:          #fdf6f9;
+      --bg-alt:      #f8f3fc;
+      --surface:     rgba(255,255,255,0.82);
+      --surface-alt: rgba(255,248,252,0.9);
+      --border:      rgba(255,143,171,0.2);
+      --border-blue: rgba(116,185,255,0.25);
+      --text:        #2d1b4e;
+      --text-soft:   #6b5b8a;
+      --text-muted:  #a896c4;
+      --r:           16px;
+      --r-sm:        10px;
+      --shadow-pink: 0 8px 32px rgba(255,107,147,0.18);
+      --shadow-blue: 0 8px 32px rgba(116,185,255,0.18);
+    }
+
+    /* ── Dark mode ──
+       Two triggers, last-write-wins via specificity:
+       1. parent NewAPI posts { type:'theme', theme:'dark'|'light' } → we set
+          <html data-theme>.  2. fallback @media prefers-color-scheme when no
+          postMessage has arrived yet (initial load / standalone use). */
+    [data-theme="dark"] {
+      --bg:          #14101a;
+      --bg-alt:      #1b1424;
+      --surface:     rgba(40,30,55,0.72);
+      --surface-alt: rgba(48,36,66,0.85);
+      --border:      rgba(255,143,171,0.28);
+      --border-blue: rgba(116,185,255,0.32);
+      --text:        #f3e9f7;
+      --text-soft:   #c4b3d8;
+      --text-muted:  #8a7aa6;
+      --shadow-pink: 0 8px 32px rgba(0,0,0,0.45);
+      --shadow-blue: 0 8px 32px rgba(0,0,0,0.45);
+    }
+    /* Fallback: follow the OS until the parent posts an explicit theme. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]):not([data-theme="dark"]) {
+        --bg:          #14101a;
+        --bg-alt:      #1b1424;
+        --surface:     rgba(40,30,55,0.72);
+        --surface-alt: rgba(48,36,66,0.85);
+        --border:      rgba(255,143,171,0.28);
+        --border-blue: rgba(116,185,255,0.32);
+        --text:        #f3e9f7;
+        --text-soft:   #c4b3d8;
+        --text-muted:  #8a7aa6;
+        --shadow-pink: 0 8px 32px rgba(0,0,0,0.45);
+        --shadow-blue: 0 8px 32px rgba(0,0,0,0.45);
+      }
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(var(--rose), var(--lavender)); border-radius: 99px; }
+    body {
+      font-family: 'Sora', 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    /* ── Grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.022;
+      pointer-events: none;
+    }
+    /* ── Gradient mesh blobs ── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+      animation: blobDrift 14s ease-in-out infinite alternate;
+    }
+    .blob-1 { width: 560px; height: 560px; background: radial-gradient(circle, rgba(255,143,171,0.22) 0%, transparent 70%); top: -120px; right: -100px; animation-duration: 16s; }
+    .blob-2 { width: 480px; height: 480px; background: radial-gradient(circle, rgba(116,185,255,0.18) 0%, transparent 70%); bottom: 10%; left: -120px; animation-duration: 20s; animation-delay: -5s; }
+    .blob-3 { width: 360px; height: 360px; background: radial-gradient(circle, rgba(162,155,254,0.16) 0%, transparent 70%); top: 45%; right: 15%; animation-duration: 18s; animation-delay: -8s; }
+    @keyframes blobDrift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(30px, 20px) scale(1.06); } }
+    
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      border-radius: var(--r);
+      font-weight: 700; font-size: 0.87rem;
+      cursor: pointer; text-decoration: none;
+      transition: all 0.25s cubic-bezier(.4,0,.2,1);
+      border: none; white-space: nowrap; position: relative; overflow: hidden;
+    }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,0.15);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .btn:hover::after { opacity: 1; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn-rose {
+      background: linear-gradient(135deg, var(--rose), #ff6b9d);
+      color: #fff; padding: 10px 24px;
+      box-shadow: var(--shadow-pink);
+    }
+    .btn-rose:hover { box-shadow: 0 12px 36px rgba(255,107,147,0.4); }
+    .btn-sky {
+      background: linear-gradient(135deg, var(--sky), #5fa8ff);
+      color: #fff; padding: 10px 24px;
+      box-shadow: var(--shadow-blue);
+    }
+    .btn-sky:hover { box-shadow: 0 12px 36px rgba(116,185,255,0.4); }
+    .btn-ghost {
+      background: var(--surface); color: var(--text-soft);
+      padding: 10px 20px; border: 1.5px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+    .btn-ghost:hover { background: var(--rose-pale); color: var(--rose); border-color: var(--rose-light); }
+    .btn-lav {
+      background: linear-gradient(135deg, var(--lavender), #7b75f5);
+      color: #fff; padding: 10px 24px;
+      box-shadow: 0 8px 28px rgba(162,155,254,0.28);
+    }
+    .btn-lg { padding: 13px 32px; font-size: 0.95rem; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      padding: 100px 24px 110px;
+      text-align: center;
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .hero-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 99px; padding: 6px 18px 6px 10px;
+      font-size: 0.77rem; font-weight: 700; margin-bottom: 32px;
+      color: var(--rose); backdrop-filter: blur(10px);
+      box-shadow: 0 2px 16px rgba(255,143,171,0.12);
+      animation: chipIn 0.6s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    .hero-chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rose); animation: pulseDot 2s infinite; }
+    @keyframes chipIn { from { opacity:0; transform: scale(0.85) translateY(10px); } }
+    @keyframes pulseDot { 0%,100% { transform:scale(1); opacity:.7; } 50% { transform:scale(1.4); opacity:1; } }
+    .hero h1 {
+      font-size: clamp(2.4rem, 5.5vw, 4rem);
+      font-weight: 800; line-height: 1.18; margin-bottom: 22px;
+      animation: heroIn 0.7s 0.1s cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes heroIn { from { opacity:0; transform: translateY(24px); } }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, var(--rose) 0%, var(--lavender) 50%, var(--sky) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      background-size: 200% 200%; animation: gradShift 6s ease infinite;
+    }
+    @keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    .hero-desc {
+      font-size: 1rem; color: var(--text-soft); line-height: 1.95;
+      max-width: 580px; margin: 0 auto 44px;
+      animation: heroIn 0.7s 0.2s both;
+    }
+    .hero-btns {
+      display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 64px;
+      animation: heroIn 0.7s 0.3s both;
+    }
+    /* Stats bar */
+    .stats-bar {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      max-width: 700px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px; overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 48px rgba(255,107,147,0.08), 0 1px 0 rgba(255,255,255,0.9) inset;
+      animation: heroIn 0.7s 0.4s both;
+    }
+    .stat-item {
+      flex: 1; min-width: 150px; padding: 24px 16px;
+      text-align: center; border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-item::before {
+      content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 32px; height: 2px; border-radius: 99px;
+      background: linear-gradient(90deg, var(--rose), var(--lavender));
+    }
+    .stat-val {
+      font-size: 1.9rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--rose), #ff6b9d);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1; margin-bottom: 6px;
+    }
+    .stat-val.sky { background: linear-gradient(135deg, var(--sky), #5fa8ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .stat-label { font-size: 0.73rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; }
+    /* Floating deco */
+    .deco { position: absolute; pointer-events: none; animation: floatY 6s ease-in-out infinite; font-size: 1.5rem; filter: drop-shadow(0 4px 8px rgba(255,107,147,0.15)); }
+    @keyframes floatY { 0%,100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-14px) rotate(4deg); } }
+
+    /* ── Section shell ── */
+    .section { padding: 100px 0; position: relative; z-index: 1; }
+    .section-inner { max-width: 1200px; margin: 0 auto; padding: 0 28px; }
+    .section-alt { background: var(--bg-alt); }
+    .section-header { text-align: center; margin-bottom: 60px; }
+    .section-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1.5px solid var(--border-blue);
+      border-radius: 99px; padding: 5px 16px;
+      font-size: 0.73rem; font-weight: 700; color: var(--sky);
+      margin-bottom: 16px; letter-spacing: 0.07em; text-transform: uppercase;
+      backdrop-filter: blur(8px);
+    }
+    .section-title {
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      font-weight: 800; color: var(--text); line-height: 1.22; margin-bottom: 14px;
+    }
+    .section-title .g-rose { background: linear-gradient(135deg, var(--rose), #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .section-title .g-sky  { background: linear-gradient(135deg, var(--sky), var(--lavender)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .section-desc { font-size: 0.92rem; color: var(--text-soft); max-width: 500px; margin: 0 auto; line-height: 1.85; }
+
+    /* ── Features ── */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .feat-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px; padding: 30px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(.4,0,.2,1);
+      position: relative; overflow: hidden;
+    }
+    .feat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,143,171,0.5), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .feat-card:hover { transform: translateY(-6px); border-color: rgba(255,143,171,0.4); box-shadow: 0 16px 48px rgba(255,107,147,0.14); }
+    .feat-card:hover::before { opacity: 1; }
+    .feat-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; margin-bottom: 18px;
+      background: linear-gradient(135deg, var(--rose-pale), var(--lav-pale));
+      border: 1.5px solid var(--border);
+      box-shadow: 0 4px 14px rgba(255,107,147,0.1);
+    }
+    .feat-card h3 { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .feat-card p  { font-size: 0.85rem; color: var(--text-soft); line-height: 1.85; }
+
+    /* ── Models ── */
+    .model-group {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px; padding: 26px 28px;
+      margin-bottom: 14px;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .model-group:hover { border-color: rgba(116,185,255,0.4); box-shadow: var(--shadow-blue); }
+    .model-group-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.9rem; font-weight: 700; color: var(--text); margin-bottom: 18px;
+    }
+    .model-group-title .icon-wrap {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.95rem;
+    }
+    .model-badges { display: flex; flex-wrap: wrap; gap: 9px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 14px; border-radius: 99px;
+      font-size: 0.78rem; font-weight: 600;
+      border: 1.5px solid; transition: all 0.2s; cursor: default;
+    }
+    .badge:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .badge-rose   { background: var(--rose-pale); border-color: var(--rose-light); color: #c0284e; }
+    .badge-rose::before { background: var(--rose); }
+    .badge-purple { background: var(--lav-pale);  border-color: var(--lav-light);  color: #5b4eb5; }
+    .badge-purple::before { background: var(--lavender); }
+    .badge-sky    { background: var(--sky-pale);  border-color: var(--sky-light);  color: #1a5fa8; }
+    .badge-sky::before { background: var(--sky); }
+    .badge-green  { background: #f0fdf8; border-color: #a7f3d0; color: #065f46; }
+    .badge-green::before { background: var(--mint); }
+    .badge-amber  { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .badge-amber::before { background: var(--amber); }
+
+    /* ── Dark-mode polish (overrides for light-on-light elements) ── */
+    [data-theme="dark"] .badge-sky,
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]):not([data-theme="dark"]) .badge-sky { background: rgba(116,185,255,0.14); color: #b8dcff; }
+    }
+    [data-theme="dark"] .badge-green { background: rgba(85,239,196,0.14); border-color: rgba(85,239,196,0.4); color: #a7f3d0; }
+    [data-theme="dark"] .badge-amber { background: rgba(253,203,110,0.14); border-color: rgba(253,203,110,0.4); color: #fde68a; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]):not([data-theme="dark"]) .badge-green { background: rgba(85,239,196,0.14); border-color: rgba(85,239,196,0.4); color: #a7f3d0; }
+      :root:not([data-theme="light"]):not([data-theme="dark"]) .badge-amber { background: rgba(253,203,110,0.14); border-color: rgba(253,203,110,0.4); color: #fde68a; }
+    }
+
+    /* ── Guide / Steps ── */
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-bottom: 36px; }
+    .step-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border-blue);
+      border-radius: 20px; padding: 30px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(.4,0,.2,1);
+      position: relative; overflow: hidden;
+    }
+    .step-card::after {
+      content: attr(data-num);
+      position: absolute; bottom: -14px; right: -4px;
+      font-family: 'Pacifico', cursive; font-size: 5rem;
+      color: rgba(116,185,255,0.06); pointer-events: none; line-height: 1;
+    }
+    .step-card:hover { transform: translateY(-5px); border-color: rgba(116,185,255,0.5); box-shadow: var(--shadow-blue); }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--sky), var(--lavender));
+      font-family: 'Sora', sans-serif; font-size: 0.82rem; font-weight: 800; color: #fff;
+      margin-bottom: 16px; box-shadow: 0 4px 14px rgba(116,185,255,0.28);
+    }
+    .step-card h3 { font-size: 0.97rem; font-weight: 700; color: var(--text); margin-bottom: 9px; }
+    .step-card p  { font-size: 0.84rem; color: var(--text-soft); line-height: 1.85; }
+
+    /* Code block */
+    .code-block {
+      background: #1e1535;
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(30,21,53,0.3);
+      border: 1.5px solid rgba(162,155,254,0.2);
+    }
+    .code-bar {
+      display: flex; align-items: center; gap: 7px;
+      padding: 14px 22px; border-bottom: 1px solid rgba(162,155,254,0.15);
+      background: rgba(255,255,255,0.03);
+    }
+    .code-dot { width: 12px; height: 12px; border-radius: 99px; }
+    .code-label { font-size: 0.75rem; font-weight: 600; color: rgba(200,190,230,0.5); margin-left: 8px; letter-spacing: 0.04em; }
+    .code-pre {
+      padding: 28px 26px;
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.84rem; line-height: 1.9; color: #e0d6f5; overflow-x: auto;
+    }
+    .kw  { color: #c084fc; }
+    .str { color: #f9a8d4; }
+    .cm  { color: #6a5d8a; }
+    .num { color: #7dd3fc; }
+    .fn  { color: #93c5fd; }
+    .var { color: #e0d6f5; }
+
+    /* ── FAQ ── */
+    .faq-list { max-width: 740px; margin: 0 auto; }
+    .faq-item {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px; margin-bottom: 10px; overflow: hidden;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .faq-item:hover { border-color: rgba(255,143,171,0.35); box-shadow: 0 4px 20px rgba(255,107,147,0.08); }
+    .faq-item.open { border-color: rgba(255,143,171,0.4); }
+    .faq-q {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 19px 24px; cursor: pointer;
+      font-size: 0.92rem; font-weight: 600; color: var(--text); gap: 14px;
+      user-select: none;
+    }
+    .faq-toggle {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+      background: var(--rose-pale); border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 700; color: var(--rose);
+      transition: all 0.25s; transform-origin: center;
+    }
+    .faq-item.open .faq-toggle { background: linear-gradient(135deg, var(--rose), #ff6b9d); color: #fff; border-color: transparent; transform: rotate(45deg); }
+    .faq-a {
+      max-height: 0; overflow: hidden;
+      font-size: 0.87rem; color: var(--text-soft); line-height: 1.9;
+      padding: 0 24px; transition: max-height 0.45s cubic-bezier(.4,0,.2,1), padding 0.3s;
+    }
+    .faq-item.open .faq-a { max-height: 220px; padding: 0 24px 20px; }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--bg-alt); border-top: 1px solid var(--border);
+      padding: 64px 28px 36px; position: relative; z-index: 1;
+    }
+    .footer-inner { max-width: 1200px; margin: 0 auto; }
+    .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 56px; margin-bottom: 48px; }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--rose), var(--lavender));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem; flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(255,107,147,0.3);
+    }
+    .logo-text { font-family: 'Pacifico', cursive; font-size: 1.1rem; background: linear-gradient(135deg, var(--rose), var(--lavender)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2; }
+    .logo-sub  { font-size: 0.65rem; color: var(--text-muted); font-weight: 500; line-height: 1; }
+    .logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .footer-brand p { font-size: 0.84rem; color: var(--text-soft); line-height: 1.9; max-width: 290px; margin: 16px 0 22px; }
+    .footer-social { display: flex; gap: 10px; }
+    footer h4 { font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 20px; letter-spacing: 0.02em; }
+    footer ul { list-style: none; }
+    footer ul li { margin-bottom: 11px; }
+    footer ul a {
+      font-size: 0.83rem; color: var(--text-soft); text-decoration: none;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px;
+    }
+    footer ul a:hover { color: var(--rose); transform: translateX(3px); }
+    .footer-bottom {
+      border-top: 1px solid var(--border); padding-top: 22px;
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 8px; font-size: 0.77rem; color: var(--text-muted);
+    }
+    .footer-bottom a { color: var(--rose); text-decoration: none; }
+
+    /* ── Scroll reveal ── */
+    .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+      .stat-item { min-width: 110px; }
+      .hero h1 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background blobs -->
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<!-- Sakura canvas -->
+<canvas id="sakura" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.5;"></canvas>
+
+<!-- Hero -->
+<section class="hero">
+  <span class="deco" style="top:20%;left:8%;animation-duration:6.5s;">🌸</span>
+  <span class="deco" style="top:25%;right:9%;animation-duration:8s;animation-delay:1.2s;font-size:1.2rem;">⭐</span>
+  <span class="deco" style="bottom:26%;left:12%;animation-duration:7s;animation-delay:.7s;font-size:1.1rem;">✦</span>
+  <span class="deco" style="bottom:22%;right:8%;animation-duration:5.5s;animation-delay:2s;font-size:1.3rem;">💫</span>
+
+  <div class="hero-chip">
+    <div class="hero-chip-dot"></div>
+    公益 AI API 聚合中转平台 · 永久免费
+  </div>
+  
+  <h1>
+    公益开放的<br/>
+    <span class="grad">AI 模型中转</span>
+  </h1>
+  
+  <p class="hero-desc">
+    支持 <strong>GPT / Claude / Gemini / DeepSeek</strong> 等 50+ 主流模型<br/>
+    OpenAI 兼容格式，零改动接入，稳定快速，不收一分 ♡
+  </p>
+  
+  <div class="hero-btns">
+    <a href="https://ai.littlesheep.cc/" class="btn btn-rose btn-lg">🌸 免费接入</a>
+    <a href="#guide" class="btn btn-sky btn-lg">📖 查看教程</a>
+    <a href="https://ai.littlesheep.cc/" target="_blank" class="btn btn-ghost btn-lg">
+      <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;animation:pulseDot 2s infinite;flex-shrink:0;"></span>
+      服务状态
+    </a>
+  </div>
+  
+  <div class="stats-bar reveal">
+    <div class="stat-item">
+      <div class="stat-val" id="model-count">50+</div>
+      <div class="stat-label">可用模型</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val sky">99.9%</div>
+      <div class="stat-label">月均可用率</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val">0¥</div>
+      <div class="stat-label">完全公益免费</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val sky">24h</div>
+      <div class="stat-label">全天候运行</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-tag">✦ 核心能力</div>
+      <h2 class="section-title">为什么选择 <span class="g-rose">本平台</span>？</h2>
+      <p class="section-desc">专为开发者与学习者打造的公益 AI API 中转，稳定、便捷，完全免费 ♡</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal reveal-delay-1">
+        <div class="feat-icon">🌐</div>
+        <h3>多模型统一接入</h3>
+        <p>一个 API Key 接入 GPT、Claude、Gemini、DeepSeek 等所有主流模型，标准 OpenAI 格式，零改动切换。</p>
+      </div>
+      <div class="feat-card reveal reveal-delay-2">
+        <div class="feat-icon">⚡</div>
+        <h3>低延迟直连加速</h3>
+        <p>全球节点智能调度，国内直连优化，保障毫秒级响应，告别超时与限速，无需科学上网。</p>
+      </div>
+      <div class="feat-card reveal reveal-delay-3">
+        <div class="feat-icon">🎁</div>
+        <h3>完全公益免费</h3>
+        <p>本平台由个人维护，不收取任何费用，可直接使用，额度充裕，长期稳定运营。</p>
+      </div>
+      <div class="feat-card reveal reveal-delay-1">
+        <div class="feat-icon">📊</div>
+        <h3>详细用量统计</h3>
+        <p>完整的用量日志与数据看板，每一次请求清晰可见，方便了解自己的 Token 使用情况。</p>
+      </div>
+      <div class="feat-card reveal reveal-delay-2">
+        <div class="feat-icon">🛡️</div>
+        <h3>稳定高可用</h3>
+        <p>多渠道自动切换容灾，SLA 99.9% 保障，服务状态实时公示，可放心接入学习与测试环境。</p>
+      </div>
+      <div class="feat-card reveal reveal-delay-3">
+        <div class="feat-icon">🔑</div>
+        <h3>子 Token 管理</h3>
+        <p>支持创建多个子 Token，独立配置使用限额与有效期，方便多场景、多项目分开管理。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Models -->
+<section class="section section-alt" id="models">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-tag">🤖 可用模型</div>
+      <h2 class="section-title">覆盖全球 <span class="g-sky">主流 AI 模型</span></h2>
+      <p class="section-desc">持续更新接入最新模型，保证你始终用上最强大的 AI ✦</p>
+    </div>
+    <!-- Model groups are rendered dynamically by #models-script from
+         /api/models/enabled (the real NewAPI catalog). Falls back to a
+         loading placeholder if the API is unreachable. -->
+    <div class="reveal" id="model-groups">
+      <div class="model-group" style="justify-content:center;color:var(--text-muted);">
+        <span class="badge badge-sky">模型列表加载中…</span>
+      </div>
+    </div>
+    <div class="reveal" style="text-align:center;margin-top:32px;">
+      <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:18px;">以上为部分模型，实际支持更多 · 持续更新中 🌸</p>
+      <a href="https://ai.littlesheep.cc/pricing" class="btn btn-ghost">查看完整模型列表 →</a>
+    </div>
+  </div>
+</section>
+
+<!-- Guide -->
+<section class="section" id="guide">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-tag">📖 快速开始</div>
+      <h2 class="section-title">三步接入，<span class="g-rose">轻松上手</span></h2>
+      <p class="section-desc">五分钟完成接入，开箱即用，完全免费 ♡</p>
+    </div>
+    <div class="steps-grid reveal">
+      <div class="step-card" data-num="01">
+        <div class="step-num">01</div>
+        <h3>创建账号</h3>
+        <p>使用邮箱免费创建平台账号，即时生效，无需审核，创建后即可获得使用额度。</p>
+      </div>
+      <div class="step-card" data-num="02">
+        <div class="step-num">02</div>
+        <h3>创建 API Key</h3>
+        <p>在控制台中创建专属 API Token，可设置额度上限和有效期，随时增删管理。</p>
+      </div>
+      <div class="step-card" data-num="03">
+        <div class="step-num">03</div>
+        <h3>替换接口地址</h3>
+        <p>将代码中的 OpenAI 地址替换为本站地址，API Key 换成你的 Token，其余保持不变。</p>
+      </div>
+    </div>
+
+    <div class="code-block reveal">
+      <div class="code-bar">
+        <div class="code-dot" style="background:#ff5f57;"></div>
+        <div class="code-dot" style="background:#ffbd2e;"></div>
+        <div class="code-dot" style="background:#28c840;"></div>
+        <span class="code-label">示例代码 &nbsp;·&nbsp; Python</span>
+      </div>
+      <pre class="code-pre"><span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+<span class="cm"># 初始化客户端，替换为本站地址即可</span>
+client = OpenAI(
+    api_key=<span class="str">"sk-你的API密钥"</span>,
+    base_url=<span class="str">"https://ai.littlesheep.cc/v1"</span>,  <span class="cm"># ← 仅需替换这里</span>
+)
+
+<span class="cm"># 调用方式与官方 SDK 完全一致</span>
+response = client.<span class="fn">chat.completions.create</span>(
+    model=<span class="str">"gpt-4o"</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"你好！"</span>}]
+)
+
+<span class="kw">print</span>(response.choices[<span class="num">0</span>].message.content)</pre>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section section-alt" id="faq">
+  <div class="section-inner">
+    <div class="section-header reveal">
+      <div class="section-tag">❓ 帮助问答</div>
+      <h2 class="section-title">你可能想问的 <span class="g-rose">问题</span></h2>
+    </div>
+    
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>💬 &nbsp;真的完全免费吗？有什么限制？</span>
+          <div class="faq-toggle">+</div>
+        </div>
+        <div class="faq-a">是的，本站由个人爱好者维护，完全免费。每个账号每日有合理的请求配额，防止滥用，足够个人学习和开发使用。如有更高需求可在群里联系站长。</div>
+      </div>
+      
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>💬 &nbsp;这个平台安全吗？会存储我的对话内容吗？</span>
+          <div class="faq-toggle">+</div>
+        </div>
+        <div class="faq-a">本站不存储任何对话内容，所有请求均通过加密通道转发给官方模型 API。API Key 加密存储，请勿在对话中发送个人敏感信息。</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>💬 &nbsp;和直接用官方 API 有什么区别？</span>
+          <div class="faq-toggle">+</div>
+        </div>
+        <div class="faq-a">本站提供聚合中转，支持国内直连访问，无需科学上网，同时支持人民币额度管理。接口与 OpenAI 完全兼容，老项目无需任何代码修改。</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>💬 &nbsp;公益站会长期运营吗？</span>
+          <div class="faq-toggle">+</div>
+        </div>
+        <div class="faq-a">站长承诺尽力长期维护，服务状态页面实时更新。如遇不可抗力需要关闭，会提前在群组通知。建议关注官方群保持同步。</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>💬 &nbsp;遇到问题怎么联系？</span>
+          <div class="faq-toggle">+</div>
+        </div>
+        <div class="faq-a">可以通过页面底部的 Telegram 群组联系站长，通常在 24 小时内回复。也可以查阅本页帮助问答或文档站。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="https://ai.littlesheep.cc/" class="logo">
+          <div class="logo-icon">🐑</div>
+          <div>
+            <div class="logo-text">LittleSheep AI</div>
+            <div class="logo-sub">公益 AI API 服务</div>
+          </div>
+        </a>
+        <p>次世代公益 AI API 中转平台，连接全球顶级 AI 模型，为开发者和学习者提供免费、稳定的接入服务，长期运营 ♡</p>
+        <div class="footer-social">
+          <a href="https://t.me" class="btn btn-ghost" style="padding:7px 16px;font-size:0.79rem;">Telegram</a>
+          <a href="mailto:support@littlesheep.cc" class="btn btn-ghost" style="padding:7px 16px;font-size:0.79rem;">邮件联系</a>
+        </div>
+      </div>
+      <div>
+        <h4>快捷链接</h4>
+        <ul>
+          <li><a href="https://ai.littlesheep.cc/">接入文档</a></li>
+          <li><a href="https://ai.littlesheep.cc/">模型列表</a></li>
+          <li><a href="https://ai.littlesheep.cc/">服务状态</a></li>
+          <li><a href="https://ai.littlesheep.cc/">控制台</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>帮助支持</h4>
+        <ul>
+          <li><a href="#faq">帮助问答</a></li>
+          <li><a href="https://ai.littlesheep.cc/">联系我们</a></li>
+          <li><a href="https://ai.littlesheep.cc/">使用条款</a></li>
+          <li><a href="https://ai.littlesheep.cc/">隐私政策</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 LittleSheep AI · Made with 🌸 · 基于 <a href="https://github.com/Calcium-Ion/new-api" target="_blank">new-api</a> 构建</span>
+      <span>ICP备xxxxxxxx号</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Theme sync from parent NewAPI ──
+// The parent (NewAPI, same-origin) posts { type:'llmshare-theme', theme:'dark'|'light' }
+// when its theme changes. We mirror it onto <html data-theme>. Before the first
+// message arrives, the CSS @media prefers-color-scheme fallback applies.
+(function () {
+  function applyTheme(t) {
+    if (t === 'dark' || t === 'light') {
+      document.documentElement.setAttribute('data-theme', t);
+    }
+  }
+  window.addEventListener('message', function (e) {
+    // Same-origin iframe → e.data is trusted; still guard the shape.
+    var d = e.data;
+    if (d && typeof d === 'object' && d.type === 'llmshare-theme') {
+      applyTheme(d.theme);
+    }
+  });
+  // Ask the parent for the current theme immediately on load.
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'llmshare-theme-request' }, '*');
+  }
+})();
+
+// ── Load real model catalog from NewAPI ──
+(function () {
+  var container = document.getElementById('model-groups');
+  var countEl = document.getElementById('model-count');
+  if (!container) return;
+  // The iframe is same-origin (/home.html), so relative /api works.
+  fetch('/api/models/enabled')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (res) {
+      var data = (res && res.data) || {};
+      var groups = data.groups || [];
+      if (countEl && typeof data.count === 'number') {
+        countEl.textContent = data.count + '+';
+      }
+      if (!groups.length) {
+        container.innerHTML = '<div class="model-group" style="justify-content:center;color:var(--text-muted);">暂无可用模型</div>';
+        return;
+      }
+      var html = groups.map(function (g) {
+        var badges = g.items.map(function (m) {
+          return '<span class="badge badge-' + g.color + '">' + escapeHtml(m) + '</span>';
+        }).join('');
+        return '<div class="model-group">' +
+          '<div class="model-group-title"><div class="icon-wrap">' + g.icon + '</div>' +
+          escapeHtml(g.title) + '</div>' +
+          '<div class="model-badges">' + badges + '</div>' +
+        '</div>';
+      }).join('');
+      container.innerHTML = html;
+    })
+    .catch(function () {
+      container.innerHTML = '<div class="model-group" style="justify-content:center;color:var(--text-muted);"><span class="badge badge-sky">模型列表加载失败</span></div>';
+    });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+})();
+
+// ── Sakura ──
+(function () {
+  const c = document.getElementById('sakura'), ctx = c.getContext('2d');
+  let W, H, P = [];
+  const COLS = [
+    'rgba(255,143,171,.65)', 'rgba(255,200,220,.55)',
+    'rgba(162,155,254,.45)', 'rgba(116,185,255,.5)',
+    'rgba(255,220,235,.6)'
+  ];
+  function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
+  function mk() {
+    return {
+      x: Math.random() * W, y: -16,
+      r: 3.5 + Math.random() * 5,
+      col: COLS[Math.random() * COLS.length | 0],
+      spd: 0.5 + Math.random() * 1.1,
+      wx: -0.3 + Math.random() * 0.6,
+      rot: Math.random() * Math.PI * 2,
+      rs: (0.01 + Math.random() * 0.02) * (Math.random() < .5 ? 1 : -1),
+      wt: Math.random() * Math.PI * 2,
+      wa: 0.4 + Math.random() * 0.9,
+      ws: 0.01 + Math.random() * 0.02
+    };
+  }
+  function draw(p) {
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * 0.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = p.col; ctx.fill(); ctx.restore();
+  }
+  function loop() {
+    ctx.clearRect(0, 0, W, H);
+    if (P.length < 50 && Math.random() < 0.12) P.push(mk());
+    P = P.filter(p => p.y < H + 20);
+    P.forEach(p => { p.wt += p.ws; p.x += p.wx + Math.sin(p.wt) * p.wa; p.y += p.spd; p.rot += p.rs; draw(p); });
+    requestAnimationFrame(loop);
+  }
+  resize(); addEventListener('resize', resize); loop();
+})();
+
+// ── Reveal on scroll ──
+const ro = new IntersectionObserver(
+  es => es.forEach(e => e.isIntersecting && e.target.classList.add('visible')),
+  { threshold: 0.07 }
+);
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+// ── FAQ ──
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  
+  document.querySelectorAll('.faq-item.open').forEach(i => {
+    i.classList.remove('open');
+    i.querySelector('.faq-toggle').textContent = '+';
+  });
+  
+  if (!isOpen) {
+    item.classList.add('open');
+    item.querySelector('.faq-toggle').textContent = '+';
+  }
+}
+</script>
+</body>
+</html>
