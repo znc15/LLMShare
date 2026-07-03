@@ -9,8 +9,12 @@ DEV_BACKEND_SERVICE = new-api
 DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
+DOCKER_IMAGE ?= littlesheepuwu/new-api
+DOCKER_TAG ?= latest
+DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+DOCKER_BUILDER ?= new-api-builder
 
-.PHONY: all build-frontend build-frontend-classic build-all-frontends start-backend dev dev-api dev-api-rebuild dev-web dev-web-classic reset-setup
+.PHONY: all build-frontend build-frontend-classic build-all-frontends start-backend dev dev-api dev-api-rebuild dev-web dev-web-classic reset-setup docker-build-push
 
 all: build-all-frontends start-backend
 
@@ -70,6 +74,9 @@ dev-web-classic:
 	@cd $(FRONTEND_CLASSIC_DIR) && bun run dev -- --host 0.0.0.0 --port $(DEV_FRONTEND_CLASSIC_PORT)
 
 dev: dev-api dev-web
+
+docker-build-push:
+	@IMAGE_NAME="$(DOCKER_IMAGE)" DOCKER_TAG="$(DOCKER_TAG)" PLATFORMS="$(DOCKER_PLATFORMS)" BUILDER="$(DOCKER_BUILDER)" ./scripts/docker-build-push.sh
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."
