@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,10 +23,29 @@ const waitlistSchema = z.object({
   email: z.string().email(),
 })
 
+// Map provider slugs (as used in routes /api/oauth/:provider) to display names
+// for the "via Discord" hint shown when a person is routed here from a full
+// OAuth sign-up.
+const providerDisplayName: Record<string, string> = {
+  github: 'GitHub',
+  discord: 'Discord',
+  oidc: 'OIDC',
+  linuxdo: 'LinuxDO',
+  wechat: 'WeChat',
+  telegram: 'Telegram',
+}
+
 export function Waitlist() {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [position, setPosition] = useState<number | null>(null)
+  // provider/provider_user_id arrive via /waitlist?provider=discord&provider_user_id=...
+  // when routed here from a full OAuth sign-up. They are forwarded to the backend
+  // so the OAuth identity can be re-bound to the account at activation.
+  const search = useSearch({ from: '/(auth)/waitlist' })
+  const provider = search.provider || ''
+  const providerUserId = search.provider_user_id || ''
+  const providerLabel = providerDisplayName[provider] || provider
 
   const form = useForm<z.infer<typeof waitlistSchema>>({
     resolver: zodResolver(waitlistSchema),
@@ -36,7 +55,11 @@ export function Waitlist() {
   async function onSubmit(data: z.infer<typeof waitlistSchema>) {
     setIsLoading(true)
     try {
-      const res = await joinWaitlist(data.email)
+      const res = await joinWaitlist(
+        data.email,
+        provider || undefined,
+        providerUserId || undefined,
+      )
       if (res?.success) {
         setPosition(res.position ?? null)
         toast.success(
@@ -92,6 +115,14 @@ export function Waitlist() {
           <div className='bg-primary/5 border-primary/20 rounded-lg border p-4 text-center'>
             <p className='text-muted-foreground text-sm'>{t('Your position')}</p>
             <p className='text-primary text-3xl font-bold'>#{position}</p>
+          </div>
+        )}
+
+        {provider && (
+          <div className='bg-muted text-muted-foreground rounded-lg border p-3 text-center text-sm'>
+            {t('Your {{provider}} account will be linked after activation.', {
+              provider: providerLabel,
+            })}
           </div>
         )}
 

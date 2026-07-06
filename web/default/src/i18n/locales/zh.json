@@ -4985,6 +4985,8 @@
     "Check my position": "查询我的排队位置",
     "You have joined the waitlist": "您已加入候补名单",
     "Failed to join waitlist": "加入候补名单失败",
+    "The user pool is full. You have been added to the waitlist.": "用户池已满，您已加入候补名单。",
+    "Your {{provider}} account will be linked after activation.": "您的 {{provider}} 账号将在激活后自动绑定。",
     "Not found": "未找到",
     "Position #{{n}}": "排队位置 #{{n}}",
     "Activate your account": "激活您的账号",

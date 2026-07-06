@@ -25,9 +25,19 @@ export interface ActivateResponse {
   message: string
 }
 
-// Join the waitlist with an email-only signup.
-export async function joinWaitlist(email: string): Promise<WaitlistJoinResponse> {
-  const res = await api.post<WaitlistJoinResponse>('/api/waitlist/join', { email })
+// Join the waitlist with an email-only signup. providerName/providerUserId are
+// supplied when routed from a full OAuth sign-up, so the OAuth identity can be
+// re-bound to the account at activation.
+export async function joinWaitlist(
+  email: string,
+  providerName?: string,
+  providerUserId?: string,
+): Promise<WaitlistJoinResponse> {
+  const res = await api.post<WaitlistJoinResponse>('/api/waitlist/join', {
+    email,
+    ...(providerName ? { provider_name: providerName } : {}),
+    ...(providerUserId ? { provider_user_id: providerUserId } : {}),
+  })
   return res.data
 }
 

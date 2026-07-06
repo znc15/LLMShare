@@ -4985,6 +4985,8 @@
     "Check my position": "Check my position",
     "You have joined the waitlist": "You have joined the waitlist",
     "Failed to join waitlist": "Failed to join waitlist",
+    "The user pool is full. You have been added to the waitlist.": "The user pool is full. You have been added to the waitlist.",
+    "Your {{provider}} account will be linked after activation.": "Your {{provider}} account will be linked after activation.",
     "Not found": "Not found",
     "Position #{{n}}": "Position #{{n}}",
     "Activate your account": "Activate your account",

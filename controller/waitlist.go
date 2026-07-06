@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/oauth"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -15,12 +16,18 @@ import (
 )
 
 type joinWaitlistRequest struct {
-	Email string `json:"email" binding:"required,email"`
+	Email          string `json:"email" binding:"required,email"`
+	ProviderName   string `json:"provider_name"`
+	ProviderUserId string `json:"provider_user_id"`
 }
 
 // JoinWaitlist accepts an email-only waitlist signup. Creates a "waiting"
 // entry and sends a confirmation email with the queue position. Always returns
 // 200 (even if already on the list) to avoid leaking waitlist state.
+//
+// ProviderName/ProviderUserId are optionally supplied when a person was routed
+// here from a full OAuth sign-up, carrying their OAuth identity for later
+// re-binding at activation.
 func JoinWaitlist(c *gin.Context) {
 	var req joinWaitlistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,7 +36,14 @@ func JoinWaitlist(c *gin.Context) {
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 
-	entry, created, err := model.AddToWaitlist(email)
+	var entry *model.WaitlistEntry
+	var created bool
+	var err error
+	if req.ProviderName != "" && req.ProviderUserId != "" {
+		entry, created, err = model.AddToWaitlistWithProvider(email, req.ProviderName, req.ProviderUserId)
+	} else {
+		entry, created, err = model.AddToWaitlist(email)
+	}
 	if err != nil {
 		common.SysError("failed to add to waitlist: " + err.Error())
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "failed to join waitlist"})
@@ -144,13 +158,116 @@ func ActivateByMagicLink(c *gin.Context) {
 		// Seed the dynamic quota at the floor.
 		floorQuota := int64(float64(common.DynamicQuotaFloorF) * common.QuotaPerUnit / 100.0)
 		_ = model.SeedDynamicQuota(inserted.Id, floorQuota)
+		// Re-bind the OAuth identity that got this person waitlisted, if any.
+		// Failure here is non-fatal: the account is already created and usable;
+		// the user can bind their social account later from the settings page.
+		bindOAuthIdentityOnActivation(&inserted, entry.ProviderName, entry.ProviderUserId)
 	}
 	// Mark the waitlist entry as joined (consumed).
 	_ = model.MarkJoined(entry.Id)
+	// Best-effort welcome email. entry.Email is always present on this path.
+	gopool.Go(func() {
+		if err := service.SendRegistrationSuccessEmail(email); err != nil {
+			common.SysError("failed to send registration success email: " + err.Error())
+		}
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "账号已激活，请登录 / account activated, please log in",
 	})
+}
+
+// builtInProviderColumns maps the slug of each built-in OAuth provider to the
+// User column that stores its bound ID. WeChat is included even though it is
+// NOT registered in the oauth.Provider registry (it has its own legacy flow),
+// so we bind it directly via the column. Custom/generic providers go through
+// the user_oauth_bindings table instead (handled below).
+var builtInProviderColumns = map[string]string{
+	"github":   "github_id",
+	"discord":  "discord_id",
+	"oidc":     "oidc_id",
+	"wechat":   "wechat_id",
+	"linuxdo":  "linux_do_id",
+	"telegram": "telegram_id",
+}
+
+// bindOAuthIdentityOnActivation re-binds the OAuth identity recorded on the
+// waitlist entry to the freshly created user. Called only after the User row
+// exists, so any failure is logged but does NOT block activation — the account
+// is already usable and the user can bind their social account from settings.
+//
+// For built-in providers we set the provider column directly (guarding against
+// the identity having been claimed by another user while the person waited).
+// For custom/generic providers we look the provider up via oauth.GetProvider
+// and create a user_oauth_bindings row.
+func bindOAuthIdentityOnActivation(user *model.User, providerName, providerUserId string) {
+	if providerName == "" || providerUserId == "" || user == nil || user.Id == 0 {
+		return
+	}
+	// Built-in provider: set the column directly.
+	if column, ok := builtInProviderColumns[providerName]; ok {
+		// Guard: someone else may have claimed this OAuth identity while the
+		// person was waiting. Skip the bind rather than overwriting or failing.
+		taken, takenErr := isBuiltInProviderIdTaken(providerName, providerUserId)
+		if takenErr != nil {
+			common.SysError("bindOAuthIdentityOnActivation: failed to check " + providerName + " id: " + takenErr.Error())
+			return
+		}
+		if taken {
+			common.SysError("bindOAuthIdentityOnActivation: " + providerName + " id already taken, skipping auto-bind for user " + strconv.Itoa(user.Id))
+			return
+		}
+		if err := model.DB.Model(&model.User{}).Where("id = ?", user.Id).
+			Update(column, providerUserId).Error; err != nil {
+			common.SysError("bindOAuthIdentityOnActivation: failed to set " + column + " for user " + strconv.Itoa(user.Id) + ": " + err.Error())
+		}
+		return
+	}
+	// Custom/generic provider: resolve via registry and create a binding row.
+	provider := oauth.GetProvider(providerName)
+	if provider == nil {
+		common.SysError("bindOAuthIdentityOnActivation: provider " + providerName + " no longer registered, skipping")
+		return
+	}
+	if provider.IsUserIDTaken(providerUserId) {
+		common.SysError("bindOAuthIdentityOnActivation: " + providerName + " id already taken, skipping auto-bind for user " + strconv.Itoa(user.Id))
+		return
+	}
+	genericProvider, ok := provider.(*oauth.GenericOAuthProvider)
+	if !ok {
+		common.SysError("bindOAuthIdentityOnActivation: provider " + providerName + " is not a generic provider, skipping")
+		return
+	}
+	binding := &model.UserOAuthBinding{
+		UserId:         user.Id,
+		ProviderId:     genericProvider.GetProviderId(),
+		ProviderUserId: providerUserId,
+	}
+	if err := model.CreateUserOAuthBinding(binding); err != nil {
+		common.SysError("bindOAuthIdentityOnActivation: failed to create binding for user " + strconv.Itoa(user.Id) + ": " + err.Error())
+	}
+}
+
+// isBuiltInProviderIdTaken reports whether a built-in provider ID is already
+// bound to some user. Mirrors the per-provider Is*IdAlreadyTaken helpers but
+// keyed by slug so the caller can stay generic.
+func isBuiltInProviderIdTaken(providerName, providerUserId string) (bool, error) {
+	switch providerName {
+	case "github":
+		return model.IsGitHubIdAlreadyTaken(providerUserId), nil
+	case "discord":
+		return model.IsDiscordIdAlreadyTaken(providerUserId), nil
+	case "oidc":
+		return model.IsOidcIdAlreadyTaken(providerUserId), nil
+	case "wechat":
+		return model.IsWeChatIdAlreadyTaken(providerUserId), nil
+	case "linuxdo":
+		return model.IsLinuxDOIdAlreadyTaken(providerUserId), nil
+	case "telegram":
+		return model.IsTelegramIdAlreadyTaken(providerUserId), nil
+	default:
+		return false, nil
+	}
 }
 
 // ---- Admin endpoints ----

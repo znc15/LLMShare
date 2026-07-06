@@ -205,6 +205,22 @@ function OAuthCallback() {
           return
         }
         const message = res?.data?.message || 'OAuth failed'
+        const errorData = (res?.data?.data ?? null) as {
+          waitlisted?: boolean
+          provider?: string
+          provider_user_id?: string
+        } | null
+        // Pool full: the backend refused to create an account and is routing the
+        // person to the waitlist. Carry their OAuth identity so it can be
+        // re-bound later, instead of treating this as a generic login failure.
+        if (!res?.data?.success && errorData?.waitlisted && !isBindingFlow) {
+          toast.info(i18next.t('The user pool is full. You have been added to the waitlist.'))
+          const params = new URLSearchParams()
+          if (errorData.provider) params.set('provider', errorData.provider)
+          if (errorData.provider_user_id) params.set('provider_user_id', errorData.provider_user_id)
+          safeNavigate(`/waitlist?${params.toString()}`)
+          return
+        }
         if (!res?.data?.success && !isBindingFlow) {
           // When logging in with an already bound GitHub account, backend may return this message
           if (message === '该 GitHub 账户已被绑定') {

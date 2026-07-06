@@ -22,6 +22,7 @@ import (
 
 	"github.com/QuantumNous/new-api/constant"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -291,6 +292,18 @@ func Register(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
 			return
 		}
+	}
+
+	// Best-effort welcome email. Password registration only has an email when
+	// EmailVerificationEnabled is on (the email-verification flow populates it);
+	// otherwise there is nothing to send.
+	if cleanUser.Email != "" {
+		email := cleanUser.Email
+		gopool.Go(func() {
+			if err := service.SendRegistrationSuccessEmail(email); err != nil {
+				common.SysError("failed to send registration success email: " + err.Error())
+			}
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{

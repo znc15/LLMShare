@@ -17,6 +17,10 @@ const (
 // WaitlistEntry is one person on the registration waitlist. The list is FIFO
 // by JoinedAt among Status=="waiting". On promotion a magic token is issued;
 // the actual User row is only created when the magic link is consumed.
+//
+// ProviderName/ProviderUserId are set when a person was waitlisted because the
+// user pool was full at OAuth time. They carry the OAuth identity so it can be
+// re-bound to the account at activation. Empty for plain email-only signups.
 type WaitlistEntry struct {
 	Id             int        `json:"id" gorm:"primaryKey;autoIncrement"`
 	Email          string     `json:"email" gorm:"type:varchar(50);not null;uniqueIndex"`
@@ -25,6 +29,8 @@ type WaitlistEntry struct {
 	PromotedAt     *time.Time `json:"promoted_at" gorm:"index"`
 	MagicToken     string     `json:"-" gorm:"type:varchar(64);index"`
 	MagicExpiresAt *time.Time `json:"magic_expires_at"`
+	ProviderName   string     `json:"provider_name" gorm:"type:varchar(64);index"`
+	ProviderUserId string     `json:"provider_user_id" gorm:"type:varchar(128);index"`
 	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime"`
 }
 
@@ -53,6 +59,48 @@ func AddToWaitlist(email string) (*WaitlistEntry, bool, error) {
 		Email:    email,
 		JoinedAt: time.Now(),
 		Status:   WaitlistStatusWaiting,
+	}
+	if err := DB.Create(&entry).Error; err != nil {
+		return nil, false, err
+	}
+	return &entry, true, nil
+}
+
+// AddToWaitlistWithProvider is like AddToWaitlist but also records the OAuth
+// provider identity that got the person waitlisted (because the user pool was
+// full at OAuth time). providerName is the provider slug (used to look the
+// provider back up at activation via oauth.GetProvider). Empty providerName or
+// providerUserId falls back to a plain email-only entry.
+func AddToWaitlistWithProvider(email, providerName, providerUserId string) (*WaitlistEntry, bool, error) {
+	if email == "" || len(email) > 50 {
+		return nil, false, gorm.ErrInvalidData
+	}
+	var existing WaitlistEntry
+	err := DB.Where("email = ?", email).First(&existing).Error
+	if err == nil {
+		// Existing entry: if it has no provider identity yet and we now have one,
+		// fill it in so a later activation can still auto-bind.
+		if existing.ProviderName == "" && existing.ProviderUserId == "" &&
+			providerName != "" && providerUserId != "" {
+			_ = DB.Model(&WaitlistEntry{}).Where("id = ?", existing.Id).
+				Updates(map[string]interface{}{
+					"provider_name":   providerName,
+					"provider_user_id": providerUserId,
+				}).Error
+			existing.ProviderName = providerName
+			existing.ProviderUserId = providerUserId
+		}
+		return &existing, false, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, false, err
+	}
+	entry := WaitlistEntry{
+		Email:          email,
+		JoinedAt:       time.Now(),
+		Status:         WaitlistStatusWaiting,
+		ProviderName:   providerName,
+		ProviderUserId: providerUserId,
 	}
 	if err := DB.Create(&entry).Error; err != nil {
 		return nil, false, err

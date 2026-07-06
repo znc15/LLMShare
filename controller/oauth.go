@@ -9,6 +9,9 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
+
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -104,13 +107,26 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 7. Find or create user
-	user, err := findOrCreateOAuthUser(c, provider, oauthUser, session)
+	user, err := findOrCreateOAuthUser(c, provider, providerName, oauthUser, session)
 	if err != nil {
-		switch err.(type) {
+		switch e := err.(type) {
 		case *OAuthUserDeletedError:
 			common.ApiErrorI18n(c, i18n.MsgOAuthUserDeleted)
 		case *OAuthRegistrationDisabledError:
 			common.ApiErrorI18n(c, i18n.MsgUserRegisterDisabled)
+		case *OAuthPoolFullError:
+			// Not a hard error — route the person to the waitlist instead of
+			// creating an account. Carry the OAuth identity so it can be
+			// re-bound when they're eventually promoted.
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": i18n.T(c, i18n.MsgOAuthPoolFull),
+				"data": gin.H{
+					"waitlisted":       true,
+					"provider":         e.ProviderName,
+					"provider_user_id": e.ProviderUserId,
+				},
+			})
 		default:
 			common.ApiError(c, err)
 		}
@@ -195,8 +211,11 @@ func handleOAuthBind(c *gin.Context, provider oauth.Provider) {
 	})
 }
 
-// findOrCreateOAuthUser finds existing user or creates new user
-func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *oauth.OAuthUser, session sessions.Session) (*model.User, error) {
+// findOrCreateOAuthUser finds existing user or creates new user.
+// providerSlug is the route-level provider name (e.g. "github", "discord") and
+// is stashed on the waitlist entry when the pool is full, so the OAuth identity
+// can be re-bound at activation via oauth.GetProvider(providerSlug).
+func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, providerSlug string, oauthUser *oauth.OAuthUser, session sessions.Session) (*model.User, error) {
 	user := &model.User{}
 
 	// Check if user already exists with new ID
@@ -235,6 +254,21 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	// User doesn't exist, create new user if registration is enabled
 	if !common.RegisterEnabled {
 		return nil, &OAuthRegistrationDisabledError{}
+	}
+
+	// Enforce the user pool cap: when full, do NOT create a User row. Instead
+	// signal the caller to route the person into the waitlist (where they supply
+	// an email). Their OAuth identity is carried along so it can be re-bound at
+	// activation. This is the only thing that keeps OAuth sign-ups under cap.
+	activeCount, err := model.CountActiveNonAdminUsers()
+	if err != nil {
+		return nil, err
+	}
+	if int(activeCount) >= common.TotalUserCap {
+		return nil, &OAuthPoolFullError{
+			ProviderName:   providerSlug,
+			ProviderUserId: oauthUser.ProviderUserID,
+		}
 	}
 
 	// Set up new user
@@ -327,6 +361,18 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		user.FinalizeOAuthUserCreation(inviterId)
 	}
 
+	// Best-effort welcome email. Some providers (Discord/WeChat/LinuxDO) return
+	// no email, in which case there is nothing to send — the require-email-bind
+	// flow will collect one later.
+	if user.Email != "" {
+		email := user.Email
+		gopool.Go(func() {
+			if err := service.SendRegistrationSuccessEmail(email); err != nil {
+				common.SysError("failed to send registration success email: " + err.Error())
+			}
+		})
+	}
+
 	return user, nil
 }
 
@@ -341,6 +387,18 @@ type OAuthRegistrationDisabledError struct{}
 
 func (e *OAuthRegistrationDisabledError) Error() string {
 	return "registration is disabled"
+}
+
+// OAuthPoolFullError signals that the user pool has reached TotalUserCap. The
+// caller (HandleOAuth) turns this into a structured response so the frontend
+// routes the person to /waitlist carrying their OAuth identity.
+type OAuthPoolFullError struct {
+	ProviderName   string
+	ProviderUserId string
+}
+
+func (e *OAuthPoolFullError) Error() string {
+	return "user pool is full"
 }
 
 // handleOAuthError handles OAuth errors and returns translated message
