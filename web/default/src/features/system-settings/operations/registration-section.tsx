@@ -70,10 +70,23 @@ interface InvitationCode {
   expired_time: number
 }
 
-interface InvitationCodesResponse {
+// The list endpoint returns a paginated payload (ApiSuccess(pageInfo)), where
+// pageInfo is { page, page_size, total, items: InvitationCode[] }. The generate
+// endpoint returns the freshly-created rows directly as data. These two shapes
+// are kept separate so each call site reads the right field.
+interface InvitationCodesPageResponse {
   success: boolean
-  data: InvitationCode[]
-  total?: number
+  data: {
+    items?: InvitationCode[]
+    total?: number
+    [key: string]: unknown
+  }
+}
+
+interface InvitationCodesGenerateResponse {
+  success: boolean
+  data?: InvitationCode[]
+  message?: string
 }
 
 // invitation-code inline management (generate / list / copy / delete). Kept in
@@ -93,11 +106,14 @@ function InvitationCodeManager() {
   const fetchCodes = async () => {
     setLoading(true)
     try {
-      const res = await api.get<InvitationCodesResponse>(
+      const res = await api.get<InvitationCodesPageResponse>(
         '/api/invitation_code/?p=1&page_size=50'
       )
-      if (res.data?.success) {
-        setCodes(res.data.data ?? [])
+      // Backend wraps the list in a pageInfo object ({items, total, ...}),
+      // so read data.items — never data itself (it is not an array).
+      const items = res.data?.data?.items
+      if (Array.isArray(items)) {
+        setCodes(items)
       }
     } catch {
       // ignore — panel is best-effort
@@ -141,18 +157,27 @@ function InvitationCodeManager() {
   const handleGenerate = async () => {
     setGenerating(true)
     try {
-      const res = await api.post<InvitationCodesResponse>('/api/invitation_code/', {
-        count,
-        name,
-        expire_days: expireDays,
-      })
+      const res = await api.post<InvitationCodesGenerateResponse>(
+        '/api/invitation_code/',
+        {
+          count,
+          name,
+          expire_days: expireDays,
+        }
+      )
       if (res.data?.success) {
+        const created = Array.isArray(res.data.data) ? res.data.data : []
         toast.success(
           t('Generated {{n}} invitation code(s)', {
-            n: res.data.data?.length ?? count,
+            n: created.length || count,
           })
         )
         setName('')
+        // Prepend the freshly-created codes and re-fetch to reconcile order.
+        // fetchCodes reads data.items (paginated payload) — safe now.
+        if (created.length > 0) {
+          setCodes((prev) => [...created, ...prev])
+        }
         await fetchCodes()
       } else {
         toast.error(res.data?.message ?? t('Failed to generate'))
