@@ -21,7 +21,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Copy, Check, Trash2, Plus } from 'lucide-react'
+import { Loader2, Copy, Check, Trash2, Plus, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import {
@@ -88,6 +88,7 @@ function InvitationCodeManager() {
   const [name, setName] = useState('')
   const [expireDays, setExpireDays] = useState(0)
   const [generating, setGenerating] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   const fetchCodes = async () => {
@@ -103,6 +104,38 @@ function InvitationCodeManager() {
       // ignore — panel is best-effort
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Export ALL codes as CSV. The backend streams the full set (no page_size
+  // cap), so this is the way to pull more than the 50 rows shown inline. Using
+  // a token-bearing request and converting the blob lets the browser trigger a
+  // real download with the server's filename.
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const res = await api.get('/api/invitation_code/export', {
+        responseType: 'blob',
+      })
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/i)
+      const fileName =
+        match?.[1] || `invitation_codes_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv`
+      const url = window.URL.createObjectURL(
+        new Blob([res.data], { type: 'text/csv;charset=utf-8;' })
+      )
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success(t('Exported'))
+    } catch {
+      toast.error(t('Failed to export'))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -163,18 +196,33 @@ function InvitationCodeManager() {
     <div className='bg-card mt-6 rounded-xl border p-5'>
       <div className='mb-4 flex items-center justify-between'>
         <h3 className='text-sm font-medium'>{t('Invitation Codes')}</h3>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={fetchCodes}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className='h-4 w-4 animate-spin' />
-          ) : (
-            t('Refresh')
-          )}
-        </Button>
+        <div className='flex items-center gap-2'>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={fetchCodes}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className='h-4 w-4 animate-spin' />
+            ) : (
+              t('Refresh')
+            )}
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className='h-4 w-4 animate-spin' />
+            ) : (
+              <Download className='h-4 w-4' />
+            )}
+            {t('Export CSV')}
+          </Button>
+        </div>
       </div>
 
       {/* Generate row */}
