@@ -96,6 +96,7 @@ export function SignUpForm({
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
+  const passwordRegisterEnabled = !!status?.password_register_enabled
   // LLMShare: when the invitation-code gate is on, both password and OAuth
   // sign-up require a valid code. The field is shown conditionally and
   // validated at submit time (and before clicking any OAuth button).
@@ -141,6 +142,13 @@ export function SignUpForm({
   }, [])
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
+    // Defensive: the password-registration form is hidden (and the submit
+    // button not rendered) when PasswordRegisterEnabled is off, but the
+    // <form> element still wraps the OAuth/invite-code area, so a stray
+    // Enter key could reach this handler. Bail out instead of attempting a
+    // registration the backend would reject.
+    if (!passwordRegisterEnabled) return
+
     if (requiresLegalConsent && !agreedToLegal) {
       toast.error(legalConsentErrorMessage)
       return
@@ -242,22 +250,9 @@ export function SignUpForm({
         className={cn('grid gap-4', className)}
         {...props}
       >
-        {/* Username Field */}
-        <FormField
-          control={form.control}
-          name='username'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('Username')}</FormLabel>
-              <FormControl>
-                <Input placeholder={t('Enter your username')} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* LLMShare: invitation code field — shown when the gate is on. */}
+        {/* LLMShare: invitation code field — shown when the gate is on. Shared
+            by both password and OAuth sign-up, so it renders outside the
+            password-only block below. */}
         {inviteCodeRequired && (
           <FormField
             control={form.control}
@@ -278,7 +273,28 @@ export function SignUpForm({
           />
         )}
 
-        {/* Password Field */}
+        {/* Password-registration fields. Hidden entirely when the operator
+            has disabled password registration (PasswordRegisterEnabled=false);
+            in that case the page shows only the invitation code + OAuth
+            buttons, and password submit is never reachable. */}
+        {passwordRegisterEnabled && (
+          <>
+            {/* Username Field */}
+            <FormField
+              control={form.control}
+              name='username'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Username')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder={t('Enter your username')} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Password Field */}
         <FormField
           control={form.control}
           name='password'
@@ -367,6 +383,8 @@ export function SignUpForm({
             </div>
           </>
         )}
+        </>
+        )}
 
         {/* Turnstile */}
         {isTurnstileEnabled && (
@@ -385,19 +403,21 @@ export function SignUpForm({
           className='mt-1'
         />
 
-        {/* Submit Button */}
-        <Button
-          type='submit'
-          className='mt-2 w-full justify-center gap-2'
-          disabled={
-            isLoading ||
-            (requiresLegalConsent && !agreedToLegal) ||
-            !turnstileReady
-          }
-        >
-          {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
-          {t('Create account')}
-        </Button>
+        {/* Submit Button — password registration only. */}
+        {passwordRegisterEnabled && (
+          <Button
+            type='submit'
+            className='mt-2 w-full justify-center gap-2'
+            disabled={
+              isLoading ||
+              (requiresLegalConsent && !agreedToLegal) ||
+              !turnstileReady
+            }
+          >
+            {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
+            {t('Create account')}
+          </Button>
+        )}
 
         {oauthRegisterEnabled && (
           <OAuthProviders
