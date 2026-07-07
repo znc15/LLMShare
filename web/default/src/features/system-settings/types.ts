@@ -363,7 +363,6 @@ export type OperationsSettings = {
   // LLMShare registration knobs.
   InviteCodeRegisterEnabled: boolean
   MaxTopUp: number
-  RequireEmailForOAuth: boolean
 }
 
 export type SecuritySettings = {

@@ -50,7 +50,6 @@ const OPERATIONS_SECTIONS = [
           InviteCodeRegisterEnabled:
             settings.InviteCodeRegisterEnabled ?? true,
           MaxTopUp: (settings.MaxTopUp ?? 0) / 100,
-          RequireEmailForOAuth: settings.RequireEmailForOAuth,
         }}
       />
     ),

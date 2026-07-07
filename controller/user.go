@@ -159,30 +159,10 @@ func setupLogin(user *model.User, c *gin.Context) {
 	})
 }
 
-// setupLoginForOAuth is the OAuth/quick-login entry point. It enforces that the
-// user has an email bound (when RequireEmailForOAuth is on). If the provider
-// returned no email, it sets a PENDING session (only the user id, no role/group,
-// so UserAuth-gated endpoints still reject) and returns require_email_bind=true;
-// the frontend then routes to the bind-email page. Password login is unaffected.
+// setupLoginForOAuth is the OAuth/quick-login entry point. It delegates to the
+// standard setupLogin — new-api's native email-binding flow (when configured)
+// handles any post-login email requirement, so no extra gate is needed here.
 func setupLoginForOAuth(user *model.User, c *gin.Context) {
-	if common.RequireEmailForOAuth && user.Email == "" {
-		// Pending session: only id, so authenticated endpoints (UserAuth checks
-		// role/status) remain blocked until EmailBind completes a real setupLogin.
-		session := sessions.Default(c)
-		session.Set("id", user.Id)
-		session.Set("username", user.Username)
-		// Deliberately do NOT set role/status/group.
-		_ = session.Save()
-		c.JSON(http.StatusOK, gin.H{
-			"message": "请先绑定邮箱后再登录 / please bind an email before logging in",
-			"success": false,
-			"data": map[string]any{
-				"require_email_bind": true,
-				"user_id":            user.Id,
-			},
-		})
-		return
-	}
 	setupLogin(user, c)
 }
 
@@ -1269,13 +1249,6 @@ func EmailBind(c *gin.Context) {
 	err = user.Update(false)
 	if err != nil {
 		common.ApiError(c, err)
-		return
-	}
-	// LLMShare: if this completed an OAuth quick-login that was pending email
-	// binding, finish the login (the pending session only had `id`, no role).
-	// setupLogin sets the full session and returns the logged-in user payload.
-	if common.RequireEmailForOAuth && session.Get("role") == nil {
-		setupLogin(&user, c)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

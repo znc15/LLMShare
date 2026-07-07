@@ -142,7 +142,6 @@ func InitOptionMap() {
 	common.OptionMap["InviteCodeRegisterEnabled"] = strconv.FormatBool(common.InviteCodeRegisterEnabled)
 	common.OptionMap["MaxTopUp"] = strconv.Itoa(common.MaxTopUp)
 	common.OptionMap["AuthImage"] = common.AuthImage
-	common.OptionMap["RequireEmailForOAuth"] = strconv.FormatBool(common.RequireEmailForOAuth)
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
@@ -380,8 +379,6 @@ func updateOptionMap(key string, value string) (err error) {
 			ratio_setting.SetExposeRatioEnabled(boolValue)
 		case "InviteCodeRegisterEnabled":
 			common.InviteCodeRegisterEnabled = boolValue
-		case "RequireEmailForOAuth":
-			common.RequireEmailForOAuth = boolValue
 		}
 	}
 	switch key {

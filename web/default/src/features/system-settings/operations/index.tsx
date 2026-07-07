@@ -56,7 +56,6 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
   MaxTopUp: 0, // 0 = unlimited
-  RequireEmailForOAuth: true, // OAuth quick-login requires bound email
 }
 
 export function OperationsSettings() {

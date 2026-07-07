@@ -48,7 +48,6 @@ const registrationSchema = z.object({
   InviteCodeRegisterEnabled: z.boolean(),
   // USD amount (form shows dollars; backend stores cents).
   MaxTopUp: z.number().min(0),
-  RequireEmailForOAuth: z.boolean(),
 })
 
 type RegistrationFormValues = z.infer<typeof registrationSchema>
@@ -372,29 +371,6 @@ export function RegistrationSection({
                   <FormDescription>
                     {t(
                       'When on, new users must supply a valid one-time invitation code to register (password and OAuth).'
-                    )}
-                  </FormDescription>
-                </SettingsSwitchContent>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </SettingsSwitchItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name='RequireEmailForOAuth'
-            render={({ field }) => (
-              <SettingsSwitchItem>
-                <SettingsSwitchContent>
-                  <FormLabel>{t('Require Email for OAuth')}</FormLabel>
-                  <FormDescription>
-                    {t(
-                      'OAuth/quick-login users must bind an email before they can sign in.'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>

@@ -162,12 +162,6 @@ var MaxTopUp = 0
 // AuthImage: optional image URL shown on the left half of the login/register
 // page (left-right split layout). Empty = a built-in gradient placeholder.
 var AuthImage = ""
-// RequireEmailForOAuth: when true, OAuth/quick-login users (GitHub/Discord/
-// WeChat/Telegram/Passkey/etc.) MUST have an email bound before they can log in.
-// If the provider returns no email, login is rejected with require_email_bind.
-// Default true: enforces that every user is reachable by email (needed for the
-// waitlist/eviction email flow). Password login is NOT affected.
-var RequireEmailForOAuth = true
 
 var RetryTimes = 0
 
