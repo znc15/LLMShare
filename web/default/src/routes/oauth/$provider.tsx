@@ -206,19 +206,18 @@ function OAuthCallback() {
         }
         const message = res?.data?.message || 'OAuth failed'
         const errorData = (res?.data?.data ?? null) as {
-          waitlisted?: boolean
+          invite_required?: boolean
           provider?: string
           provider_user_id?: string
         } | null
-        // Pool full: the backend refused to create an account and is routing the
-        // person to the waitlist. Carry their OAuth identity so it can be
-        // re-bound later, instead of treating this as a generic login failure.
-        if (!res?.data?.success && errorData?.waitlisted && !isBindingFlow) {
-          toast.info(i18next.t('The user pool is full. You have been added to the waitlist.'))
-          const params = new URLSearchParams()
-          if (errorData.provider) params.set('provider', errorData.provider)
-          if (errorData.provider_user_id) params.set('provider_user_id', errorData.provider_user_id)
-          safeNavigate(`/waitlist?${params.toString()}`)
+        // LLMShare: invitation-code gate. The backend refused to create an
+        // account because no invitation code was carried into the OAuth flow.
+        // Route the person back to sign-up so they can supply one; the OAuth
+        // state on the provider side is already authorized, so a fresh attempt
+        // with a code in the session will succeed.
+        if (!res?.data?.success && errorData?.invite_required && !isBindingFlow) {
+          toast.info(i18next.t('An invitation code is required to register.'))
+          safeNavigate('/sign-up')
           return
         }
         if (!res?.data?.success && !isBindingFlow) {

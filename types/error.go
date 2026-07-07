@@ -59,11 +59,6 @@ const (
 	ErrorCodeChannelAwsClientError        ErrorCode = "channel:aws_client_error"
 	ErrorCodeChannelInvalidKey            ErrorCode = "channel:invalid_key"
 	ErrorCodeChannelResponseTimeExceeded  ErrorCode = "channel:response_time_exceeded"
-	// ErrorCodeChannelBudgetExceeded marks a channel that has hit its LLMShare
-	// budget cap for the current window. It is a retriable channel error so the
-	// relay fails over to the next channel; it must NOT auto-ban the channel
-	// (it self-recovers at the next window boundary).
-	ErrorCodeChannelBudgetExceeded ErrorCode = "channel:budget_exceeded"
 
 	// client request error
 	ErrorCodeReadRequestBodyFailed ErrorCode = "read_request_body_failed"

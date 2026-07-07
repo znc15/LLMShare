@@ -55,19 +55,6 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.flush_interval': 5,
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
-  // LLMShare dynamic-quota defaults. Amount fields are stored as USD *cents*
-  // (integer) to avoid float precision issues; the section registry divides
-  // them by 100 before passing to the form so the UI shows dollars.
-  DynamicQuotaEnabled: false,
-  DynamicQuotaPoolB: 5000, // $50.00
-  DynamicQuotaFloorF: 50, // $0.50
-  DynamicQuotaCapC: 500, // $5.00
-  DynamicQuotaLookbackHours: 24,
-  InactivityThresholdDays: 7,
-  TotalUserCap: 50,
-  MagicLinkTTLHours: 24,
-  ChannelBudgetCap: 10000, // $100.00 per period
-  ChannelBudgetCapPeriod: 'daily',
   MaxTopUp: 0, // 0 = unlimited
   RequireEmailForOAuth: true, // OAuth quick-login requires bound email
 }

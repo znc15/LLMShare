@@ -66,6 +66,7 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 				checkAndSendQuotaNotify(relayInfo, actualQuota-preConsumed, preConsumed)
 			}
 		}
+
 		return nil
 	}
 

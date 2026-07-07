@@ -23,7 +23,7 @@ import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
-import { DynamicQuotaSection } from './dynamic-quota-section'
+import { RegistrationSection } from './registration-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -42,22 +42,13 @@ const OPERATIONS_SECTIONS = [
     ),
   },
   {
-    id: 'dynamic-quota',
-    titleKey: 'Dynamic Quota',
+    id: 'registration',
+    titleKey: 'Registration',
     build: (settings: OperationsSettings) => (
-      <DynamicQuotaSection
+      <RegistrationSection
         defaultValues={{
-          DynamicQuotaEnabled: settings.DynamicQuotaEnabled,
-          // 后端存的是美分，表单按美元显示（÷100）。
-          DynamicQuotaPoolB: (settings.DynamicQuotaPoolB ?? 0) / 100,
-          DynamicQuotaFloorF: (settings.DynamicQuotaFloorF ?? 0) / 100,
-          DynamicQuotaCapC: (settings.DynamicQuotaCapC ?? 0) / 100,
-          DynamicQuotaLookbackHours: settings.DynamicQuotaLookbackHours,
-          InactivityThresholdDays: settings.InactivityThresholdDays,
-          TotalUserCap: settings.TotalUserCap,
-          MagicLinkTTLHours: settings.MagicLinkTTLHours,
-          ChannelBudgetCap: (settings.ChannelBudgetCap ?? 0) / 100,
-          ChannelBudgetCapPeriod: settings.ChannelBudgetCapPeriod ?? 'daily',
+          InviteCodeRegisterEnabled:
+            settings.InviteCodeRegisterEnabled ?? true,
           MaxTopUp: (settings.MaxTopUp ?? 0) / 100,
           RequireEmailForOAuth: settings.RequireEmailForOAuth,
         }}

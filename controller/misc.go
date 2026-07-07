@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -91,6 +90,7 @@ func GetStatus(c *gin.Context) {
 		"register_enabled":              common.RegisterEnabled,
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
+		"invite_code_register_enabled":  common.InviteCodeRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
@@ -235,7 +235,9 @@ func GetHomePageContent(c *gin.Context) {
 }
 
 func SendEmailVerification(c *gin.Context) {
-	email := c.Query("email")
+	// Normalize first (trim + lower) so a pasted address with surrounding
+	// whitespace is not rejected by the validator's strict email rule.
+	email := common.NormalizeEmail(c.Query("email"))
 	if err := common.Validate.Var(email, "required,email"); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -243,41 +245,19 @@ func SendEmailVerification(c *gin.Context) {
 		})
 		return
 	}
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
+	if !common.EmailDomainAllowed(email) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "无效的邮箱地址",
+			"message": "该邮箱域名不在管理员允许的白名单内 / email domain is not in the admin whitelist",
 		})
 		return
 	}
-	localPart := parts[0]
-	domainPart := parts[1]
-	if common.EmailDomainRestrictionEnabled {
-		allowed := false
-		for _, domain := range common.EmailDomainWhitelist {
-			if domainPart == domain {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "The administrator has enabled the email domain name whitelist, and your email address is not allowed due to special symbols or it's not in the whitelist.",
-			})
-			return
-		}
-	}
-	if common.EmailAliasRestrictionEnabled {
-		containsSpecialSymbols := strings.Contains(localPart, "+") || strings.Contains(localPart, ".")
-		if containsSpecialSymbols {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "管理员已启用邮箱地址别名限制，您的邮箱地址由于包含特殊符号而被拒绝。",
-			})
-			return
-		}
+	if common.EmailAliasRejected(email) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "管理员已启用邮箱地址别名限制，您的邮箱地址由于包含特殊符号而被拒绝。",
+		})
+		return
 	}
 
 	if model.IsEmailAlreadyTaken(email) {

@@ -197,17 +197,6 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 
-		// LLMShare: if the selected channel has hit its budget cap for the
-		// current window, fail over to the next channel instead of forwarding.
-		if budgetErr := service.CheckChannelBudget(channel.Id); budgetErr != nil {
-			processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), budgetErr)
-			newAPIError = budgetErr
-			if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
-				break
-			}
-			continue
-		}
-
 		addUsedChannel(c, channel.Id)
 		bodyStorage, bodyErr := common.GetBodyStorage(c)
 		if bodyErr != nil {

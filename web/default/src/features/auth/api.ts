@@ -84,11 +84,16 @@ export async function githubOAuthStart(clientId: string, state: string) {
   window.open(url)
 }
 
-// Get OAuth state for CSRF protection
-export async function getOAuthState(): Promise<string> {
+// Get OAuth state for CSRF protection. The optional invitation code is stashed
+// on the server-side session so it can be validated/consumed atomically with
+// user creation in the OAuth callback. Mirrors how aff is carried through.
+export async function getOAuthState(invite?: string): Promise<string> {
   const aff =
     typeof window !== 'undefined' ? (localStorage.getItem('aff') ?? '') : ''
-  const res = await api.get('/api/oauth/state', { params: { aff } })
+  const params: Record<string, string> = {}
+  if (aff) params.aff = aff
+  if (invite) params.invite = invite
+  const res = await api.get('/api/oauth/state', { params })
   if (res.data?.success) return res.data.data
   return ''
 }

@@ -35,6 +35,9 @@ type OAuthProvidersProps = {
   className?: string
   onWeChatLogin?: () => void
   isWeChatLoading?: boolean
+  // LLMShare: invitation code carried into the OAuth flow (stashed on the
+  // server session via getOAuthState). Undefined leaves the gate untouched.
+  inviteCode?: string
 }
 
 type ProviderButton = {
@@ -51,6 +54,7 @@ export function OAuthProviders({
   className,
   onWeChatLogin,
   isWeChatLoading = false,
+  inviteCode,
 }: OAuthProvidersProps) {
   const { t } = useTranslation()
   const {
@@ -81,7 +85,7 @@ export function OAuthProviders({
     providerButtons.push({
       key: 'github',
       label: githubButtonText || t('Continue with GitHub'),
-      onClick: handleGitHubLogin,
+      onClick: () => handleGitHubLogin(inviteCode),
       icon: <IconGithub className='h-4 w-4' />,
       disabled: githubButtonDisabled,
     })
@@ -91,7 +95,7 @@ export function OAuthProviders({
     providerButtons.push({
       key: 'discord',
       label: t('Continue with Discord'),
-      onClick: handleDiscordLogin,
+      onClick: () => handleDiscordLogin(inviteCode),
       icon: <IconDiscord className='h-4 w-4' />,
     })
   }
@@ -100,7 +104,7 @@ export function OAuthProviders({
     providerButtons.push({
       key: 'oidc',
       label: t('Continue with OIDC'),
-      onClick: handleOIDCLogin,
+      onClick: () => handleOIDCLogin(inviteCode),
     })
   }
 
@@ -108,7 +112,7 @@ export function OAuthProviders({
     providerButtons.push({
       key: 'linuxdo',
       label: t('Continue with LinuxDO'),
-      onClick: handleLinuxDOLogin,
+      onClick: () => handleLinuxDOLogin(inviteCode),
       icon: <IconLinuxDo className='h-4 w-4' />,
     })
   }
@@ -128,7 +132,7 @@ export function OAuthProviders({
       providerButtons.push({
         key: `custom-${provider.slug}`,
         label: t('Continue with {{name}}', { name: provider.name }),
-        onClick: () => handleCustomOAuthLogin(provider),
+        onClick: () => handleCustomOAuthLogin(provider, inviteCode),
       })
     }
   }

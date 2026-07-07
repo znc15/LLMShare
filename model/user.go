@@ -36,6 +36,7 @@ type User struct {
 	WeChatId         string                     `json:"wechat_id" gorm:"column:wechat_id;index"`
 	TelegramId       string                     `json:"telegram_id" gorm:"column:telegram_id;index"`
 	VerificationCode string                     `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
+	InviteCode      string                     `json:"invite_code" gorm:"-:all"`                              // LLMShare: one-time invitation code submitted at registration; not persisted on the user.
 	AccessToken      *string                    `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
 	Quota            int                        `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
@@ -333,18 +334,11 @@ func HardDeleteUserById(id int) error {
 		if err := deleteUserOAuthBindingsByUserId(tx, id); err != nil {
 			return err
 		}
-		return tx.Unscoped().Delete(&User{}, "id = ?", id).Error
+		if err := tx.Unscoped().Delete(&User{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+		return nil
 	})
-}
-
-// CountActiveNonAdminUsers returns the number of enabled, non-admin users,
-// i.e. the slots occupied against TotalUserCap. Used by the promotion step.
-func CountActiveNonAdminUsers() (int64, error) {
-	var count int64
-	err := DB.Unscoped().Model(&User{}).
-		Where("status = ? AND role < ?", 1, 10).
-		Count(&count).Error
-	return count, err
 }
 
 func inviteUser(inviterId int) (err error) {

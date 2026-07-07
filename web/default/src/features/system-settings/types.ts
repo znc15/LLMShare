@@ -360,17 +360,8 @@ export type OperationsSettings = {
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
-  // LLMShare dynamic-quota knobs (amounts in USD cents).
-  DynamicQuotaEnabled: boolean
-  DynamicQuotaPoolB: number
-  DynamicQuotaFloorF: number
-  DynamicQuotaCapC: number
-  DynamicQuotaLookbackHours: number
-  InactivityThresholdDays: number
-  TotalUserCap: number
-  MagicLinkTTLHours: number
-  ChannelBudgetCap: number
-  ChannelBudgetCapPeriod: 'daily' | 'hourly'
+  // LLMShare registration knobs.
+  InviteCodeRegisterEnabled: boolean
   MaxTopUp: number
   RequireEmailForOAuth: boolean
 }

@@ -232,6 +232,23 @@ func Register(c *gin.Context) {
 			return
 		}
 	}
+	// LLMShare: invitation-code gate. Pre-validate existence/unused/unexpired
+	// here so we fail fast with a clear error; the actual consumption happens
+	// inside the user-creation transaction below so a DB error can never leave
+	// a code consumed without a corresponding user (or vice versa).
+	var inviteCode *model.InvitationCode
+	if common.InviteCodeRegisterEnabled {
+		if user.InviteCode == "" {
+			common.ApiErrorI18n(c, i18n.MsgInviteCodeRequired)
+			return
+		}
+		inv, err := model.FindInvitationCode(user.InviteCode)
+		if err != nil || !inv.IsValid() {
+			common.ApiErrorI18n(c, i18n.MsgInviteCodeInvalid)
+			return
+		}
+		inviteCode = inv
+	}
 	exist, err := model.CheckUserExistOrDeleted(user.Username, user.Email)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
@@ -254,18 +271,30 @@ func Register(c *gin.Context) {
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	if err := cleanUser.Insert(inviterId); err != nil {
-		common.ApiError(c, err)
-		return
+	// LLMShare: when the invitation-code gate is on, consume the code in the
+	// same transaction as the user insert so the two cannot diverge. Without
+	// the gate we fall back to the plain Insert path.
+	if inviteCode != nil {
+		if err := model.DB.Transaction(func(tx *gorm.DB) error {
+			if err := cleanUser.InsertWithTx(tx, inviterId); err != nil {
+				return err
+			}
+			return model.ConsumeInvitationCodeWithTx(tx, inviteCode.Code, cleanUser.Id)
+		}); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		// Post-transaction tasks (sidebar config, quota gifts, logs) mirror
+		// the non-gate Insert path. cleanUser.Id was populated by tx.Create.
+		cleanUser.FinishInsert(inviterId)
+	} else {
+		if err := cleanUser.Insert(inviterId); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	}
 
-	// 获取插入后的用户ID
-	var insertedUser model.User
-	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
-		return
-	}
-	// 生成默认令牌
+	// 生成默认令牌（cleanUser.Id 已由 Insert/InsertWithTx 回写）
 	if constant.GenerateDefaultToken {
 		key, err := common.GenerateKey()
 		if err != nil {
@@ -275,7 +304,7 @@ func Register(c *gin.Context) {
 		}
 		// 生成默认令牌
 		token := model.Token{
-			UserId:             insertedUser.Id, // 使用插入后的用户ID
+			UserId:             cleanUser.Id,
 			Name:               cleanUser.Username + "的初始令牌",
 			Key:                key,
 			CreatedTime:        common.GetTimestamp(),
@@ -943,8 +972,11 @@ func DeleteSelf(c *gin.Context) {
 		return
 	}
 
-	err := model.DeleteUserById(id)
-	if err != nil {
+	// Hard delete so the user can re-register with the same username/email/OAuth
+	// identity. A soft delete would keep the row: CountActiveNonAdminUsers would
+	// still count it against TotalUserCap, and CheckUserExistOrDeleted would
+	// block re-registration by matching the soft-deleted username/email.
+	if err := model.HardDeleteUserById(id); err != nil {
 		common.ApiError(c, err)
 		return
 	}

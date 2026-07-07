@@ -446,15 +446,6 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 		}
 	}
 
-	// LLMShare: record spend against the user's hourly bucket + dynamic quota
-	// and against the channel's budget window. channelId is read from the
-	// relay info channel meta (the channel that actually served the request).
-	channelId := 0
-	if relayInfo.ChannelMeta != nil {
-		channelId = relayInfo.ChannelMeta.ChannelId
-	}
-	SettleDynamicQuota(relayInfo, quota, channelId)
-
 	return nil
 }
 

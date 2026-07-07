@@ -293,7 +293,9 @@ const (
 	MsgOAuthTokenFailed     = "oauth.token_failed"
 	MsgOAuthUserInfoEmpty   = "oauth.user_info_empty"
 	MsgOAuthTrustLevelLow   = "oauth.trust_level_low"
-	MsgOAuthPoolFull        = "oauth.pool_full"
+	// LLMShare: invitation-code registration gate.
+	MsgInviteCodeRequired = "invite_code.required"
+	MsgInviteCodeInvalid  = "invite_code.invalid"
 )
 
 // Model layer error messages (for translation in controller)

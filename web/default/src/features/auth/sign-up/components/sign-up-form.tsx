@@ -90,11 +90,17 @@ export function SignUpForm({
       email: '',
       password: '',
       confirmPassword: '',
+      invite_code: '',
     },
   })
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
+  // LLMShare: when the invitation-code gate is on, both password and OAuth
+  // sign-up require a valid code. The field is shown conditionally and
+  // validated at submit time (and before clicking any OAuth button).
+  const inviteCodeRequired = !!status?.invite_code_register_enabled
+  const inviteCode = form.watch('invite_code') ?? ''
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
@@ -152,6 +158,12 @@ export function SignUpForm({
       }
     }
 
+    // LLMShare: invitation-code gate (password registration path).
+    if (inviteCodeRequired && !data.invite_code?.trim()) {
+      toast.error(t('An invitation code is required to register'))
+      return
+    }
+
     if (!validateTurnstile()) return
 
     setIsLoading(true)
@@ -162,6 +174,7 @@ export function SignUpForm({
         email: data.email || undefined,
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
+        invite_code: data.invite_code || undefined,
         turnstile: turnstileToken,
       })
 
@@ -243,6 +256,27 @@ export function SignUpForm({
             </FormItem>
           )}
         />
+
+        {/* LLMShare: invitation code field — shown when the gate is on. */}
+        {inviteCodeRequired && (
+          <FormField
+            control={form.control}
+            name='invite_code'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invitation Code')}</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder={t('Enter your invitation code')}
+                    autoComplete='off'
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {/* Password Field */}
         <FormField
@@ -368,9 +402,14 @@ export function SignUpForm({
         {oauthRegisterEnabled && (
           <OAuthProviders
             status={status}
-            disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+            disabled={
+              isLoading ||
+              (requiresLegalConsent && !agreedToLegal) ||
+              (inviteCodeRequired && !inviteCode.trim())
+            }
             onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
             isWeChatLoading={isWeChatSubmitting}
+            inviteCode={inviteCodeRequired ? inviteCode.trim() : undefined}
             className='pt-2'
           />
         )}

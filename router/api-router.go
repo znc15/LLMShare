@@ -67,12 +67,6 @@ func SetApiRouter(router *gin.Engine) {
 		// Universal secure verification routes
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
 
-		// LLMShare: public waitlist (email-only join) + magic-link activation.
-		// These are open endpoints; rate-limited by GlobalAPIRateLimit + CriticalRateLimit.
-		apiRouter.POST("/waitlist/join", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.JoinWaitlist)
-		apiRouter.POST("/waitlist/status", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.GetWaitlistStatus)
-		apiRouter.POST("/activate", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.ActivateByMagicLink)
-
 		userRoute := apiRouter.Group("/user")
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.Register)
@@ -131,9 +125,6 @@ func SetApiRouter(router *gin.Engine) {
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
 				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
-
-				// LLMShare: the calling user's own dynamic-quota state (read-only).
-				selfRoute.GET("/dynamic_quota", controller.GetMyDynamicQuota)
 			}
 
 			adminRoute := userRoute.Group("/")
@@ -158,23 +149,6 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
 			}
 
-			// LLMShare admin: waitlist management, dynamic-quota tick control,
-			// channel-budget view. All under AdminAuth.
-			waitlistAdminRoute := apiRouter.Group("/waitlist")
-			waitlistAdminRoute.Use(middleware.AdminAuth())
-			{
-				waitlistAdminRoute.GET("/", controller.GetWaitlistAdmin)
-				waitlistAdminRoute.POST("/:id/promote", controller.PromoteWaitlistEntryAdmin)
-				waitlistAdminRoute.DELETE("/:id", controller.RemoveWaitlistEntryAdmin)
-			}
-			dqAdminRoute := apiRouter.Group("/dynamic_quota")
-			dqAdminRoute.Use(middleware.AdminAuth())
-			{
-				dqAdminRoute.GET("/tick_status", controller.GetDynamicQuotaTickStatusAdmin)
-				dqAdminRoute.POST("/run_tick", controller.RunDynamicQuotaTickAdmin)
-				dqAdminRoute.GET("/channel_budgets", controller.GetChannelBudgetsAdmin)
-				dqAdminRoute.GET("/overview", controller.GetDynamicQuotaOverviewAdmin)
-			}
 			// LLMShare: export/import all options (config backup/transfer).
 			optionAdminRoute := apiRouter.Group("/option")
 			optionAdminRoute.Use(middleware.AdminAuth())
@@ -298,6 +272,15 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
+		}
+		// LLMShare: invitation-code management (admin only).
+		invitationCodeRoute := apiRouter.Group("/invitation_code")
+		invitationCodeRoute.Use(middleware.AdminAuth())
+		{
+			invitationCodeRoute.GET("/", controller.GetAllInvitationCodes)
+			invitationCodeRoute.GET("/search", controller.SearchInvitationCodes)
+			invitationCodeRoute.POST("/", controller.AddInvitationCodes)
+			invitationCodeRoute.DELETE("/:id", controller.DeleteInvitationCode)
 		}
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)

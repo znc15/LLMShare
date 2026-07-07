@@ -105,7 +105,11 @@ func SyncChannelCache(frequency int) {
 	}
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
+// GetRandomSatisfiedChannel picks a weighted-random channel for the given
+// group/model/priority. excludeIds (non-nil) removes channels from the
+// candidate pool before selection — used to drop budget-exhausted channels so
+// they are not re-picked on retry.
+func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string, excludeIds map[int]bool) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
 		return GetChannel(group, model, retry, requestPath)
@@ -157,6 +161,9 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
 	var sumWeight = 0
 	var targetChannels []*Channel
 	for _, channelId := range channels {
+		if excludeIds != nil && excludeIds[channelId] {
+			continue
+		}
 		if channel, ok := channelsIDM[channelId]; ok {
 			if channel.GetPriority() == targetPriority {
 				sumWeight += channel.GetWeight()

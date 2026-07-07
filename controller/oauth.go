@@ -30,6 +30,13 @@ func GenerateOAuthCode(c *gin.Context) {
 	if affCode != "" {
 		session.Set("aff", affCode)
 	}
+	// LLMShare: stash the invitation code submitted before clicking the OAuth
+	// button, so it can be validated + consumed atomically with user creation
+	// in findOrCreateOAuthUser. Mirrors how aff is handled above.
+	inviteCode := c.Query("invite")
+	if inviteCode != "" {
+		session.Set("invite", inviteCode)
+	}
 	session.Set("oauth_state", state)
 	err := session.Save()
 	if err != nil {
@@ -114,15 +121,16 @@ func HandleOAuth(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgOAuthUserDeleted)
 		case *OAuthRegistrationDisabledError:
 			common.ApiErrorI18n(c, i18n.MsgUserRegisterDisabled)
-		case *OAuthPoolFullError:
-			// Not a hard error — route the person to the waitlist instead of
-			// creating an account. Carry the OAuth identity so it can be
-			// re-bound when they're eventually promoted.
+		case *OAuthInviteCodeRequiredError:
+			// No invitation code was carried into the OAuth flow. Surface a
+			// structured response so the frontend can route the person back to
+			// supply one, carrying the OAuth identity so the provider-side
+			// state (already authorized) is not lost.
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": i18n.T(c, i18n.MsgOAuthPoolFull),
+				"message": i18n.T(c, i18n.MsgInviteCodeRequired),
 				"data": gin.H{
-					"waitlisted":       true,
+					"invite_required":  true,
 					"provider":         e.ProviderName,
 					"provider_user_id": e.ProviderUserId,
 				},
@@ -256,19 +264,24 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, providerSlug
 		return nil, &OAuthRegistrationDisabledError{}
 	}
 
-	// Enforce the user pool cap: when full, do NOT create a User row. Instead
-	// signal the caller to route the person into the waitlist (where they supply
-	// an email). Their OAuth identity is carried along so it can be re-bound at
-	// activation. This is the only thing that keeps OAuth sign-ups under cap.
-	activeCount, err := model.CountActiveNonAdminUsers()
-	if err != nil {
-		return nil, err
-	}
-	if int(activeCount) >= common.TotalUserCap {
-		return nil, &OAuthPoolFullError{
-			ProviderName:   providerSlug,
-			ProviderUserId: oauthUser.ProviderUserID,
+	// LLMShare: invitation-code gate. The code is stashed on the session by
+	// GenerateOAuthCode (front end fills it before clicking the OAuth button).
+	// Validate existence + unused + unexpired here; consume atomically inside
+	// the creation transaction below so a failed user insert cannot burn a code.
+	var inviteCode *model.InvitationCode
+	if common.InviteCodeRegisterEnabled {
+		rawInvite, _ := session.Get("invite").(string)
+		if rawInvite == "" {
+			return nil, &OAuthInviteCodeRequiredError{
+				ProviderName:   providerSlug,
+				ProviderUserId: oauthUser.ProviderUserID,
+			}
 		}
+		inv, err := model.FindInvitationCode(rawInvite)
+		if err != nil || !inv.IsValid() {
+			return nil, fmt.Errorf("%s", i18n.T(c, i18n.MsgInviteCodeInvalid))
+		}
+		inviteCode = inv
 	}
 
 	// Set up new user
@@ -312,6 +325,14 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, providerSlug
 				return err
 			}
 
+			// LLMShare: consume the invitation code inside the same tx so a
+			// binding failure rolls back the consumption too.
+			if inviteCode != nil {
+				if err := model.ConsumeInvitationCodeWithTx(tx, inviteCode.Code, user.Id); err != nil {
+					return err
+				}
+			}
+
 			// Create OAuth binding
 			binding := &model.UserOAuthBinding{
 				UserId:         user.Id,
@@ -336,6 +357,14 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, providerSlug
 			// Create user
 			if err := user.InsertWithTx(tx, inviterId); err != nil {
 				return err
+			}
+
+			// LLMShare: consume the invitation code inside the same tx so a
+			// provider-id update failure rolls back the consumption too.
+			if inviteCode != nil {
+				if err := model.ConsumeInvitationCodeWithTx(tx, inviteCode.Code, user.Id); err != nil {
+					return err
+				}
 			}
 
 			// Set the provider user ID on the user model and update
@@ -373,6 +402,14 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, providerSlug
 		})
 	}
 
+	// LLMShare: clear the stashed invitation code now that it has been consumed
+	// inside the creation transaction. Best-effort — a save failure must not
+	// invalidate the successful user creation.
+	if common.InviteCodeRegisterEnabled {
+		session.Delete("invite")
+		_ = session.Save()
+	}
+
 	return user, nil
 }
 
@@ -389,16 +426,17 @@ func (e *OAuthRegistrationDisabledError) Error() string {
 	return "registration is disabled"
 }
 
-// OAuthPoolFullError signals that the user pool has reached TotalUserCap. The
-// caller (HandleOAuth) turns this into a structured response so the frontend
-// routes the person to /waitlist carrying their OAuth identity.
-type OAuthPoolFullError struct {
+// OAuthInviteCodeRequiredError signals that no invitation code was carried into
+// the OAuth sign-up flow. The caller (HandleOAuth) turns this into a structured
+// response so the frontend can route the person back to supply one, carrying
+// their OAuth identity so the already-authorized provider state is not lost.
+type OAuthInviteCodeRequiredError struct {
 	ProviderName   string
 	ProviderUserId string
 }
 
-func (e *OAuthPoolFullError) Error() string {
-	return "user pool is full"
+func (e *OAuthInviteCodeRequiredError) Error() string {
+	return "invitation code required"
 }
 
 // handleOAuthError handles OAuth errors and returns translated message

@@ -138,17 +138,8 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
-	// Dynamic Quota (LLMShare) defaults
-	common.OptionMap["DynamicQuotaEnabled"] = strconv.FormatBool(common.DynamicQuotaEnabled)
-	common.OptionMap["DynamicQuotaPoolB"] = strconv.Itoa(common.DynamicQuotaPoolB)
-	common.OptionMap["DynamicQuotaFloorF"] = strconv.Itoa(common.DynamicQuotaFloorF)
-	common.OptionMap["DynamicQuotaCapC"] = strconv.Itoa(common.DynamicQuotaCapC)
-	common.OptionMap["DynamicQuotaLookbackHours"] = strconv.Itoa(common.DynamicQuotaLookbackHours)
-	common.OptionMap["InactivityThresholdDays"] = strconv.Itoa(common.InactivityThresholdDays)
-	common.OptionMap["TotalUserCap"] = strconv.Itoa(common.TotalUserCap)
-	common.OptionMap["MagicLinkTTLHours"] = strconv.Itoa(common.MagicLinkTTLHours)
-	common.OptionMap["ChannelBudgetCap"] = strconv.Itoa(common.ChannelBudgetCap)
-	common.OptionMap["ChannelBudgetCapPeriod"] = common.ChannelBudgetCapPeriod
+	// LLMShare: invitation-code registration gate.
+	common.OptionMap["InviteCodeRegisterEnabled"] = strconv.FormatBool(common.InviteCodeRegisterEnabled)
 	common.OptionMap["MaxTopUp"] = strconv.Itoa(common.MaxTopUp)
 	common.OptionMap["AuthImage"] = common.AuthImage
 	common.OptionMap["RequireEmailForOAuth"] = strconv.FormatBool(common.RequireEmailForOAuth)
@@ -387,8 +378,8 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.DefaultUseAutoGroup = boolValue
 		case "ExposeRatioEnabled":
 			ratio_setting.SetExposeRatioEnabled(boolValue)
-		case "DynamicQuotaEnabled":
-			common.DynamicQuotaEnabled = boolValue
+		case "InviteCodeRegisterEnabled":
+			common.InviteCodeRegisterEnabled = boolValue
 		case "RequireEmailForOAuth":
 			common.RequireEmailForOAuth = boolValue
 		}
@@ -539,26 +530,6 @@ func updateOptionMap(key string, value string) (err error) {
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":
 		common.PreConsumedQuota, _ = strconv.Atoi(value)
-	case "DynamicQuotaPoolB":
-		common.DynamicQuotaPoolB, _ = strconv.Atoi(value)
-	case "DynamicQuotaFloorF":
-		common.DynamicQuotaFloorF, _ = strconv.Atoi(value)
-	case "DynamicQuotaCapC":
-		common.DynamicQuotaCapC, _ = strconv.Atoi(value)
-	case "DynamicQuotaLookbackHours":
-		common.DynamicQuotaLookbackHours, _ = strconv.Atoi(value)
-	case "InactivityThresholdDays":
-		common.InactivityThresholdDays, _ = strconv.Atoi(value)
-	case "TotalUserCap":
-		common.TotalUserCap, _ = strconv.Atoi(value)
-	case "MagicLinkTTLHours":
-		common.MagicLinkTTLHours, _ = strconv.Atoi(value)
-	case "ChannelBudgetCap":
-		common.ChannelBudgetCap, _ = strconv.Atoi(value)
-	case "ChannelBudgetCapPeriod":
-		if value == "hourly" || value == "daily" {
-			common.ChannelBudgetCapPeriod = value
-		}
 	case "MaxTopUp":
 		common.MaxTopUp, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitCount":

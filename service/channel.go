@@ -49,11 +49,6 @@ func ShouldDisableChannel(err *types.NewAPIError) bool {
 	if err == nil {
 		return false
 	}
-	// LLMShare: a channel that hit its budget cap self-recovers at the next
-	// window boundary, so it must never be auto-disabled.
-	if err.GetErrorCode() == types.ErrorCodeChannelBudgetExceeded {
-		return false
-	}
 	if types.IsChannelError(err) {
 		return true
 	}

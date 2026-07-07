@@ -145,6 +145,63 @@ func MaskEmail(email string) string {
 	return "***@" + email[atIndex+1:]
 }
 
+// NormalizeEmail lowercases and trims surrounding whitespace from an email.
+// Callers should run user input through this before validating or storing, so
+// that pasted addresses with stray spaces are handled uniformly (the gin
+// `binding:"email"` tag rejects any whitespace and would otherwise 400 such
+// input with a misleading "invalid email" message).
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+// IsValidEmailFormat is a permissive structural check used in addition to the
+// strict gin validator tag. It accepts any "local@domain" with a non-empty
+// local part and a domain containing a dot. This intentionally avoids the
+// false-negatives of go-playground/validator's RFC-strict `email` rule (which
+// rejects trailing spaces, some plus-addressing, and new TLDs).
+func IsValidEmailFormat(email string) bool {
+	at := strings.IndexByte(email, '@')
+	if at <= 0 || at == len(email)-1 {
+		return false
+	}
+	domain := email[at+1:]
+	return strings.Contains(domain, ".")
+}
+
+// EmailDomainAllowed reports whether the domain of `email` passes the configured
+// EmailDomainRestrictionEnabled whitelist. The whitelist match is
+// case-insensitive (callers should pass an already-normalized email).
+func EmailDomainAllowed(email string) bool {
+	if !EmailDomainRestrictionEnabled {
+		return true
+	}
+	at := strings.IndexByte(email, '@')
+	if at < 0 {
+		return false
+	}
+	domain := email[at+1:]
+	for _, allowed := range EmailDomainWhitelist {
+		if domain == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+// EmailAliasRejected reports whether the local part of `email` violates the
+// configured EmailAliasRestrictionEnabled rule (rejects "+" / "." aliases).
+func EmailAliasRejected(email string) bool {
+	if !EmailAliasRestrictionEnabled {
+		return false
+	}
+	at := strings.IndexByte(email, '@')
+	if at <= 0 {
+		return false
+	}
+	local := email[:at]
+	return strings.ContainsAny(local, "+.")
+}
+
 // maskHostTail returns the tail parts of a domain/host that should be preserved.
 // It keeps 2 parts for likely country-code TLDs (e.g., co.uk, com.cn), otherwise keeps only the TLD.
 func maskHostTail(parts []string) []string {

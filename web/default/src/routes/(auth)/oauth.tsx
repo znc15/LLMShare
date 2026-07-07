@@ -37,22 +37,7 @@ function OAuthComponent() {
     ;(async () => {
       try {
         if (search?.provider === 'wechat' && search.code) {
-          const res = await wechatLoginByCode(search.code)
-          // Pool full: route to the waitlist with the WeChat identity, do not
-          // attempt to log in (no account was created).
-          const data = (res?.data ?? null) as {
-            waitlisted?: boolean
-            provider?: string
-            provider_user_id?: string
-          } | null
-          if (!res?.success && data?.waitlisted) {
-            toast.info(i18next.t('The user pool is full. You have been added to the waitlist.'))
-            const params = new URLSearchParams()
-            if (data.provider) params.set('provider', data.provider)
-            if (data.provider_user_id) params.set('provider_user_id', data.provider_user_id)
-            navigate({ to: `/waitlist?${params.toString()}`, replace: true })
-            return
-          }
+          await wechatLoginByCode(search.code)
         }
         const res = await getSelf()
         if (res?.success) {

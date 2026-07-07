@@ -71,7 +71,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleGitHubLogin = async () => {
+  const handleGitHubLogin = async (invite?: string) => {
     if (!status?.github_client_id) return
     if (githubButtonDisabled) return
 
@@ -93,7 +93,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
 
     try {
       await resetSession()
-      const state = await getOAuthState()
+      const state = await getOAuthState(invite)
       if (!state) {
         toast.error(t('Failed to initialize OAuth'))
         if (githubTimeoutRef.current) {
@@ -118,13 +118,13 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleDiscordLogin = async () => {
+  const handleDiscordLogin = async (invite?: string) => {
     if (!status?.discord_client_id) return
 
     setIsLoading(true)
     try {
       await resetSession()
-      const state = await getOAuthState()
+      const state = await getOAuthState(invite)
       if (!state) {
         toast.error(t('Failed to initialize OAuth'))
         return
@@ -139,13 +139,13 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleOIDCLogin = async () => {
+  const handleOIDCLogin = async (invite?: string) => {
     if (!status?.oidc_authorization_endpoint || !status?.oidc_client_id) return
 
     setIsLoading(true)
     try {
       await resetSession()
-      const state = await getOAuthState()
+      const state = await getOAuthState(invite)
       if (!state) {
         toast.error(t('Failed to initialize OAuth'))
         return
@@ -164,13 +164,13 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleLinuxDOLogin = async () => {
+  const handleLinuxDOLogin = async (invite?: string) => {
     if (!status?.linuxdo_client_id) return
 
     setIsLoading(true)
     try {
       await resetSession()
-      const state = await getOAuthState()
+      const state = await getOAuthState(invite)
       if (!state) {
         toast.error(t('Failed to initialize OAuth'))
         return
@@ -189,13 +189,16 @@ export function useOAuthLogin(status: SystemStatus | null) {
     toast.info(t('Telegram login requires widget integration; coming soon'))
   }
 
-  const handleCustomOAuthLogin = async (provider: CustomOAuthProviderInfo) => {
+  const handleCustomOAuthLogin = async (
+    provider: CustomOAuthProviderInfo,
+    invite?: string
+  ) => {
     if (!provider.authorization_endpoint || !provider.client_id) return
 
     setIsLoading(true)
     try {
       await resetSession()
-      const state = await getOAuthState()
+      const state = await getOAuthState(invite)
       if (!state) {
         toast.error(t('Failed to initialize OAuth'))
         return

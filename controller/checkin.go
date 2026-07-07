@@ -15,7 +15,6 @@ import (
 // GetCheckinStatus 获取用户签到状态和历史记录
 func GetCheckinStatus(c *gin.Context) {
 	setting := operation_setting.GetCheckinSetting()
-	// LLMShare: IsCheckinEnabled 在动态额度开启时也返回 false（二者互斥）。
 	if !operation_setting.IsCheckinEnabled() {
 		common.ApiErrorMsg(c, "签到功能未启用")
 		return

@@ -21,14 +21,12 @@ import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as ConsoleTopupRouteImport } from './routes/console/topup'
 import { Route as ConsoleLogRouteImport } from './routes/console/log'
-import { Route as AuthenticatedSystemStatusRouteImport } from './routes/_authenticated/system-status'
 import { Route as AuthenticatedChat2linkRouteImport } from './routes/_authenticated/chat2link'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
-import { Route as authWaitlistRouteImport } from './routes/(auth)/waitlist'
 import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as authResetRouteImport } from './routes/(auth)/reset'
@@ -131,12 +129,6 @@ const ConsoleLogRoute = ConsoleLogRouteImport.update({
   path: '/console/log',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSystemStatusRoute =
-  AuthenticatedSystemStatusRouteImport.update({
-    id: '/system-status',
-    path: '/system-status',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedChat2linkRoute = AuthenticatedChat2linkRouteImport.update({
   id: '/chat2link',
   path: '/chat2link',
@@ -166,11 +158,6 @@ const errors401Route = errors401RouteImport.update({
   id: '/(errors)/401',
   path: '/401',
   getParentRoute: () => rootRouteImport,
-} as any)
-const authWaitlistRoute = authWaitlistRouteImport.update({
-  id: '/waitlist',
-  path: '/waitlist',
-  getParentRoute: () => authRouteRoute,
 } as any)
 const authSignUpRoute = authSignUpRouteImport.update({
   id: '/sign-up',
@@ -431,14 +418,12 @@ export interface FileRoutesByFullPath {
   '/reset': typeof authResetRoute
   '/sign-in': typeof authSignInRoute
   '/sign-up': typeof authSignUpRoute
-  '/waitlist': typeof authWaitlistRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
-  '/system-status': typeof AuthenticatedSystemStatusRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
@@ -493,14 +478,12 @@ export interface FileRoutesByTo {
   '/reset': typeof authResetRoute
   '/sign-in': typeof authSignInRoute
   '/sign-up': typeof authSignUpRoute
-  '/waitlist': typeof authWaitlistRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
-  '/system-status': typeof AuthenticatedSystemStatusRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
@@ -559,14 +542,12 @@ export interface FileRoutesById {
   '/(auth)/reset': typeof authResetRoute
   '/(auth)/sign-in': typeof authSignInRoute
   '/(auth)/sign-up': typeof authSignUpRoute
-  '/(auth)/waitlist': typeof authWaitlistRoute
   '/(errors)/401': typeof errors401Route
   '/(errors)/403': typeof errors403Route
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/chat2link': typeof AuthenticatedChat2linkRoute
-  '/_authenticated/system-status': typeof AuthenticatedSystemStatusRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
@@ -624,14 +605,12 @@ export interface FileRouteTypes {
     | '/reset'
     | '/sign-in'
     | '/sign-up'
-    | '/waitlist'
     | '/401'
     | '/403'
     | '/404'
     | '/500'
     | '/503'
     | '/chat2link'
-    | '/system-status'
     | '/console/log'
     | '/console/topup'
     | '/oauth/$provider'
@@ -686,14 +665,12 @@ export interface FileRouteTypes {
     | '/reset'
     | '/sign-in'
     | '/sign-up'
-    | '/waitlist'
     | '/401'
     | '/403'
     | '/404'
     | '/500'
     | '/503'
     | '/chat2link'
-    | '/system-status'
     | '/console/log'
     | '/console/topup'
     | '/oauth/$provider'
@@ -751,14 +728,12 @@ export interface FileRouteTypes {
     | '/(auth)/reset'
     | '/(auth)/sign-in'
     | '/(auth)/sign-up'
-    | '/(auth)/waitlist'
     | '/(errors)/401'
     | '/(errors)/403'
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/chat2link'
-    | '/_authenticated/system-status'
     | '/console/log'
     | '/console/topup'
     | '/oauth/$provider'
@@ -909,13 +884,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConsoleLogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/system-status': {
-      id: '/_authenticated/system-status'
-      path: '/system-status'
-      fullPath: '/system-status'
-      preLoaderRoute: typeof AuthenticatedSystemStatusRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/chat2link': {
       id: '/_authenticated/chat2link'
       path: '/chat2link'
@@ -957,13 +925,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/401'
       preLoaderRoute: typeof errors401RouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/waitlist': {
-      id: '/(auth)/waitlist'
-      path: '/waitlist'
-      fullPath: '/waitlist'
-      preLoaderRoute: typeof authWaitlistRouteImport
-      parentRoute: typeof authRouteRoute
     }
     '/(auth)/sign-up': {
       id: '/(auth)/sign-up'
@@ -1278,7 +1239,6 @@ interface authRouteRouteChildren {
   authResetRoute: typeof authResetRoute
   authSignInRoute: typeof authSignInRoute
   authSignUpRoute: typeof authSignUpRoute
-  authWaitlistRoute: typeof authWaitlistRoute
   authUserResetRoute: typeof authUserResetRoute
 }
 
@@ -1291,7 +1251,6 @@ const authRouteRouteChildren: authRouteRouteChildren = {
   authResetRoute: authResetRoute,
   authSignInRoute: authSignInRoute,
   authSignUpRoute: authSignUpRoute,
-  authWaitlistRoute: authWaitlistRoute,
   authUserResetRoute: authUserResetRoute,
 }
 
@@ -1359,7 +1318,6 @@ const AuthenticatedSystemSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemSettingsRouteRoute: typeof AuthenticatedSystemSettingsRouteRouteWithChildren
   AuthenticatedChat2linkRoute: typeof AuthenticatedChat2linkRoute
-  AuthenticatedSystemStatusRoute: typeof AuthenticatedSystemStatusRoute
   AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
   AuthenticatedDashboardSectionRoute: typeof AuthenticatedDashboardSectionRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
@@ -1383,7 +1341,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemSettingsRouteRoute:
     AuthenticatedSystemSettingsRouteRouteWithChildren,
   AuthenticatedChat2linkRoute: AuthenticatedChat2linkRoute,
-  AuthenticatedSystemStatusRoute: AuthenticatedSystemStatusRoute,
   AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
   AuthenticatedDashboardSectionRoute: AuthenticatedDashboardSectionRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,

@@ -30,7 +30,6 @@ import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
-import { DynamicQuotaCard } from './components/dynamic-quota-card'
 import { DEFAULT_DISCOUNT_RATE } from './constants'
 import {
   useTopupInfo,
@@ -265,7 +264,6 @@ export function Wallet(props: WalletProps) {
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
             <WalletStatsCard user={user} loading={userLoading} />
-            <DynamicQuotaCard />
 
             <div
               className={

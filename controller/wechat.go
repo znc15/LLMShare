@@ -91,23 +91,6 @@ func WeChatAuth(c *gin.Context) {
 		}
 	} else {
 		if common.RegisterEnabled {
-			// Enforce the user pool cap. WeChat has no email, so the person can't
-			// be waitlisted directly — but we still must not create an account
-			// past the cap. Route them to the waitlist with their WeChat identity
-			// so they can supply an email there.
-			activeCount, capErr := model.CountActiveNonAdminUsers()
-			if capErr == nil && int(activeCount) >= common.TotalUserCap {
-				c.JSON(http.StatusOK, gin.H{
-					"success": false,
-					"message": "用户池已满，请加入候补名单 / user pool is full, please join the waitlist",
-					"data": gin.H{
-						"waitlisted":       true,
-						"provider":         "wechat",
-						"provider_user_id": wechatId,
-					},
-				})
-				return
-			}
 			user.Username = "wechat_" + strconv.Itoa(model.GetMaxUserId()+1)
 			user.DisplayName = "WeChat User"
 			user.Role = common.RoleCommonUser

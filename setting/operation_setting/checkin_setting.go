@@ -1,7 +1,6 @@
 package operation_setting
 
 import (
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
@@ -30,12 +29,7 @@ func GetCheckinSetting() *CheckinSetting {
 }
 
 // IsCheckinEnabled 是否启用签到功能。
-// LLMShare: 当动态额度开启时，强制禁用签到 —— 动态额度体系下用户额度按需
-// 分配，签到赠送的固定额度会破坏分配模型，所以二者互斥。
 func IsCheckinEnabled() bool {
-	if common.DynamicQuotaEnabled {
-		return false
-	}
 	return checkinSetting.Enabled
 }
 
