@@ -198,6 +198,11 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	user.Username = strings.TrimSpace(user.Username)
+	if user.Username == "" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
 	if err := common.Validate.Struct(&user); err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserInputInvalid, map[string]any{"Error": err.Error()})
 		return
@@ -682,6 +687,11 @@ func UpdateUser(c *gin.Context) {
 	}
 	if updatedUser.Password == "" {
 		updatedUser.Password = "$I_LOVE_U" // make Validator happy :)
+	}
+	updatedUser.Username = strings.TrimSpace(updatedUser.Username)
+	if updatedUser.Username == "" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
 	}
 	if err := common.Validate.Struct(&updatedUser); err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserInputInvalid, map[string]any{"Error": err.Error()})
