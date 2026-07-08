@@ -56,6 +56,8 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
   MaxTopUp: 0, // 0 = unlimited
+  // LLMShare registration knobs.
+  InviteCodeRegisterEnabled: false,
 }
 
 export function OperationsSettings() {

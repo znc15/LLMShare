@@ -371,7 +371,10 @@ export function RegistrationSection({
     for (const [key, value] of updates) {
       if (key === 'MaxTopUp') {
         // form is dollars, backend stores cents
-        await updateOption.mutateAsync({ key, value: Math.round(value * 100) })
+        await updateOption.mutateAsync({
+          key,
+          value: Math.round((value as number) * 100),
+        })
       } else {
         await updateOption.mutateAsync({ key, value })
       }
